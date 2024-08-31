@@ -1,0 +1,23 @@
+TODO:z
+
+Error the user if array dimension differenec
+
+multiple conditions (while (cond1 && cond2 && cond3 || cond4))
+
+Implement continue and break keywords
+
+Static and const objects.
+
+Chars
+
+For the future:
+Implement casting!
+switch statements
+refactor probably
+
+========================
+Code Gen TODO:
+
+Structures!
+Better strings?
+place strings in .data! (except if its not a string literal, rather an array of chars)
