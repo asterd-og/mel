@@ -1,6 +1,6 @@
-TODO:z
+TODO:
 
-Error the user if array dimension differenec
+Error the user if array dimension difference
 
 multiple conditions (while (cond1 && cond2 && cond3 || cond4))
 
@@ -14,10 +14,10 @@ For the future:
 Implement casting!
 switch statements
 refactor probably
+Assertions
 
 ========================
 Code Gen TODO:
 
 Structures!
-Better strings?
-place strings in .data! (except if its not a string literal, rather an array of chars)
+Fix stack strings assignment problem (str[n] = ...)

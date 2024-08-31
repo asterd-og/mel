@@ -352,8 +352,12 @@ int cg_fn_call(cg_t* cg, node_t* node, bool arg) {
 }
 
 int get_arr_sz(type_t* type) {
-  if (type->is_pointer) return 8;
-  return type->arr_size->value;
+  if (type->is_pointer) {
+    if (type->pointer) return 8;
+    return 1;
+  }
+  if (type->is_arr) return type->arr_size->value;
+  return 8;
 }
 
 // Returns the register with the address of the item accessed
@@ -368,10 +372,9 @@ int cg_arr_idx(cg_t* cg, node_t* node) {
     if (temp->pointer && (temp->pointer->is_arr || temp->pointer->is_pointer))
       temp = temp->pointer;
     reg = cg_expr(cg, (node_t*)expr->data); // reg now contains the indexer
-    type_t* temp2 = temp;
+    type_t* temp2 = temp->pointer;
     int this_size = -1;
-    while (temp2->is_arr) {
-      temp2 = temp2->pointer;
+    while (temp2->pointer) {
       int load_size = x86_load_int(cg, get_arr_sz(temp2));
       if (temp2->pointer) {
         int s2nd_size = x86_load_int(cg, get_arr_sz(temp2->pointer));
@@ -379,16 +382,16 @@ int cg_arr_idx(cg_t* cg, node_t* node) {
         temp2 = temp2->pointer;
       }
     }
-    if (this_size == -1) {
-      this_size = x86_load_int(cg, get_arr_sz(temp));
-    }
-    if (to_add != -1) {
-      x86_add(cg, reg, to_add);
-    }
     if (expr->next != expr_list->head) {
-      x86_mul(cg, reg, this_size);
+      if (this_size == -1) {
+        this_size = x86_load_int(cg, get_arr_sz(temp));
+      }
+      reg = x86_mul(cg, reg, this_size);
     }
-    cg_reg_free(cg, this_size);
+    if (to_add >= 0)
+      reg = x86_add(cg, reg, to_add);
+    if (this_size >= 0)
+      cg_reg_free(cg, this_size);
     to_add = reg;
     // Now we should add this indexer to the array
   }
@@ -405,17 +408,17 @@ char* cg_get_obj(cg_t* cg, token_t* name, node_t* node) {
   if (node->type == NODE_ARR_IDX) {
     char* name_str = parse_str(node->tok);
     cg_obj_t* obj = cg_find_object(cg, name_str);
-    cg->current_type = obj->type->pointer; // FIXME support 2D+ arrays
+    cg->current_type = obj->type;
     type = obj->type;
     int idx = cg_arr_idx(cg, node);
     if (obj->type->is_pointer) {
+      // FIXME support 2D+ arrays
       int reg = x86_idx_arr(cg, idx, name_str, true);
       sprintf(output, "[%s]", regs64[reg]);
-      free(name_str);
     } else {
-      sprintf(output, "[rbp%d+%s]", obj->offset, x86_get_reg(cg, idx));
-      free(name_str);
+      sprintf(output, "[rbp%d+%s]", obj->offset, regs64[idx]);
     }
+    free(name_str);
   } else if (node->type == NODE_ID) {
     char* name_str = parse_str(node->tok);
     cg_obj_t* obj = cg_find_object(cg, name_str);
@@ -525,7 +528,7 @@ char* cg_cond(cg_t* cg, node_t* cond, bool invert) {
   // TODO: Implement the rest of conditions
   static char* op_invert[] = {"jne", "jle", "jl", "jge", "jg", "!", "je", "&", "&&", "|", "||"};
   static char* op[] = {"je", "jg", "jge", "jl", "jle", "!", "jne", "&", "&&", "|", "||"};
-  if (cond->type >= NODE_EQEQ && cond->type <= NODE_DBOR) {
+  if (cond->type >= NODE_EQEQ && cond->type <= NODE_DBOR && cond->type != NODE_NOT) {
     int reg1 = cg_expr(cg, cond->lhs);
     int reg2 = cg_expr(cg, cond->rhs);
     fprintf(cg->out, "\tcmp %s, %s\n", x86_get_reg(cg, reg1), x86_get_reg(cg, reg2));

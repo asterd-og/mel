@@ -176,24 +176,26 @@ int x86_idx_arr(cg_t* cg, int reg, char* name, bool assign) {
       printf("TODO!\n");
       exit(1);
     }
-    fprintf(cg->out, "\tmov %s, %s [rbp%d+%s]\n", x86_get_reg(cg, res), word_sizes[x86_get_size(obj->type)],
-      obj->offset, x86_get_reg(cg, reg));
+    /*fprintf(cg->out, "\tmov %s, %s [rbp%d+%s]\n", x86_get_reg(cg, res), word_sizes[x86_get_size(obj->type)],
+      obj->offset, x86_get_reg(cg, reg));*/
+    fprintf(cg->out, "\t%s %s, %s [rbp%d+%s]\n", x86_get_mov64(obj->type), x86_get_reg(cg, res),
+     word_sizes[x86_get_size(obj->type)], obj->offset, regs64[reg]);
   } else {
     // its a pointer
     int ptr = cg_reg_alloc(cg);
-    int scale = cg_reg_alloc(cg);
-    fprintf(cg->out, "\tmov %s, %d\n", x86_get_reg(cg, scale), obj->type->type->size);
-    int mul = x86_mul(cg, reg, scale);
-    if (x86_get_size(cg->current_type) < 8) {
-      fprintf(cg->out, "\tmovsx %s, %s\n", regs64[mul], x86_get_reg_by_type(cg->current_type, mul));
-    }
-    if (mul != reg) {
-      cg_reg_free(cg, reg);
-      reg = mul;
-    }
-    cg_reg_free(cg, scale);
     fprintf(cg->out, "\tmov %s, qword [rbp%d]\n", regs64[ptr], obj->offset);
-    fprintf(cg->out, "\tadd %s, %s\n", regs64[ptr], regs64[reg]);
+    int mul = reg;
+    int size = x86_load_int(cg, 8);
+    type_t* temp = obj->type->pointer;
+    while (temp->pointer->is_pointer) {
+      temp = temp->pointer;
+      mul = x86_mul(cg, mul, size);
+    }
+    cg_reg_free(cg, size);
+    fprintf(cg->out, "\tadd %s, %s\n", regs64[ptr], regs64[mul]);
+    if (mul != res) {
+      cg_reg_free(cg, mul);
+    }
     if (!assign) {
       fprintf(cg->out, "\t%s %s, %s [%s]\n", x86_get_mov64(obj->type->pointer), regs64[res],
         word_sizes[x86_get_size(obj->type->pointer)], regs64[ptr]);

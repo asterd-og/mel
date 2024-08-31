@@ -17,7 +17,7 @@ void term_view(node_t* node) {
       term_view(node->lhs);
       break;
     case NODE_EXCL:
-      printf("~");
+      printf("!");
       term_view(node->lhs);
       break;
     case NODE_NEG:

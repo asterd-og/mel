@@ -7,21 +7,29 @@ fn getRand(var max: u64): u64;
 fn printFmt(var fmt: char*, ...): u64;
 fn getInput(var buf: char*, var size: int): char*;
 
-fn printBin(var val: u64, var size: int): void {
-  for (var i: int = size; i >= 0; i -= 1) {
-    if (val & (1 << i) == 0) {
-      print("0");
-    } else {
-      print("1");
+fn print3DArr(var arr: u8***, var dims: int): void {
+  for (var dim1: int = 0; dim1 < dims; dim1 += 1) {
+    for (var dim2: int = 0; dim2 < dims; dim2 += 1) {
+      for (var dim3: int = 0; dim3 < dims; dim3 += 1) {
+        printFmt("%d ", arr[dim1][dim2][dim3]);
+      }
+      printFmt("\n");
     }
   }
 }
 
 fn main(): int {
-  var test: u8 = 1;
-  if (!test) {
-    print("Bollocks mate!\n");
+  var dims: int = 3;
+  var cnt: u8 = 1;
+  var arr: u8*** = allocMem(dims * dims * dims);
+  for (var dim1: int = 0; dim1 < dims; dim1 += 1) {
+    for (var dim2: int = 0; dim2 < dims; dim2 += 1) {
+      for (var dim3: int = 0; dim3 < dims; dim3 += 1) {
+        arr[dim1][dim2][dim3] = cnt;
+        cnt += 1;
+      }
+    }
   }
-  print("\n");
+  print3DArr(arr, dims);
   ret 0;
 }

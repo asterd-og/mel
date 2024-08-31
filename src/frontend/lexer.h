@@ -60,7 +60,8 @@ enum {
   TOK_RET,
   TOK_SIGNED,
   TOK_UNSIGNED,
-  TOK_IMPORT
+  TOK_IMPORT,
+  TOK_STRUCT,
 };
 
 typedef struct {

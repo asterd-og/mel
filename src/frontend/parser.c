@@ -167,6 +167,11 @@ object_t* parser_new_obj(parser_t* parser, type_t* type, token_t* tok, char* nam
 
 // Checks if both types are the same
 void parser_type_check(parser_t* parser, type_t* ty1, type_t* ty2) {
+  if (ty2->is_arr && ty1->is_pointer) {
+    if (ty2->pointer && ty2->pointer->is_arr) {
+      parser_error(parser, "Trying to pass 2+D array into double (or more) pointer.");
+    }
+  }
   if (ty1->type != ty2->type) {
     parser_warn(parser, "Type-mismatch between type '%s' and '%s'.", ty1->type->name, ty2->type->name);
   }
@@ -299,9 +304,18 @@ node_t* parse_array(parser_t* parser, type_t* type) {
   node->type = NODE_ARRAY;
   list_t* list = list_create();
   while (parser->token->type != TOK_RSQBR) {
+    if (type->pointer && type->is_arr) {
+      if (list->size + 1 > type->pointer->arr_size->value) {
+        parser_error(parser, "Too many items in array.");
+        return NULL;
+      }
+    }
     if (parser->token->type == TOK_LSQBR) {
       parser_consume(parser);
-      expr = parse_array(parser, type);
+      if (type->pointer->pointer && type->pointer->is_arr)
+        expr = parse_array(parser, type->pointer);
+      else
+        expr = parse_array(parser, type);
     } else {
       expr = parse_expression(parser, type);
     }
