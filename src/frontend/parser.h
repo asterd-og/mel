@@ -35,8 +35,12 @@ int64_t parse_num(token_t* tok);
 int64_t parse_neg(token_t* tok);
 char* parse_str(token_t* tok);
 
+scope_t* parser_new_scope(parser_t* parser);
+
 object_t* parser_find_obj(parser_t* parser, char* name);
+object_t* parser_new_obj(parser_t* parser, type_t* type, token_t* tok, char* name, bool var, bool glb, list_t* params);
 void parser_type_check(parser_t* parser, type_t* ty1, type_t* ty2);
+type_t* parser_get_type(parser_t* parser);
 
 node_t* parse_arr_idx(parser_t* parser);
 node_t* parse_array(parser_t* parser, type_t* type);

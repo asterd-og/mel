@@ -20,5 +20,4 @@ Assertions
 ========================
 Code Gen TODO:
 
-Structures!
 Fix stack strings assignment problem (str[n] = ...)
