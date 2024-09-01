@@ -352,11 +352,64 @@ node_t* parse_ref(parser_t* parser, type_t* type) {
   return node;
 }
 
+node_t* parse_struct_acc(parser_t* parser, type_t* type);
+
+node_t* parse_id(parser_t* parser) {
+  token_t* name = parser_expect(parser, TOK_ID);
+  char* pname = parse_str(name);
+  object_t* obj = parser_find_obj(parser, pname);
+  node_t* node;
+  if (parser_peek(parser)->type == TOK_DOT) {
+    if (!obj->type->type->_struct) {
+      parser_error(parser, "Trying to access member of non-struct type.");
+      return NULL;
+    }
+    node = parse_struct_acc(parser, obj->type);
+  } else {
+    node = NEW_DATA(node_t);
+    node->type = NODE_ID;
+    node->tok = name;
+    parser_consume(parser);
+  }
+  return node;
+}
+
+node_t* parse_struct_acc(parser_t* parser, type_t* type) {
+  // Gotta end in =
+  node_t* node = NEW_DATA(node_t);
+  node->type = NODE_STRUCT_ACC;
+  node->tok = parser->token;
+  // Find object in members of type
+  if (parser_consume(parser)->type == TOK_DOT) {
+    if (!type->type->_struct) {
+      parser_error(parser, "Trying to access member of non-struct type.");
+      return NULL;
+    }
+    parser_consume(parser);
+    list_t* list = type->type->members;
+    bool found = false;
+    type_t* ty;
+    for (list_item_t* item = list->head->next; item != list->head; item = item->next) {
+      var_t* var = (var_t*)item->data;
+      if (!strncmp(parser->token->text, var->name->text, parser->token->text_len)) {
+        ty = var->type;
+        found = true;
+      }
+    }
+    if (!found) {
+      parser_error(parser, "No member '%.*s' found in structure %s.", parser->token->text_len, parser->token->text, type->type->name);
+      return NULL;
+    }
+    node->lhs = parse_struct_acc(parser, ty);
+  }
+  return node;
+}
+
 // ID | array_index | @expr
 node_t* parse_lvalue(parser_t* parser) {
   token_t* name = parser->token;
   node_t* node;
-  if (name->type == TOK_AT) { // FIXME: This CANNOT be an expression, maybe a binary expr?
+  if (name->type == TOK_AT) {
     parser_consume(parser);
     node_t* expr = parse_simple_expr(parser);
     node = NEW_DATA(node_t);
@@ -366,6 +419,7 @@ node_t* parse_lvalue(parser_t* parser) {
   }
   object_t* obj = parser_find_obj(parser, parse_str(name));
   if (obj->type->is_arr || obj->type->is_pointer) {
+    // TODO: Check for -> if its pointer
     if (parser_peek(parser)->type != TOK_LSQBR) {
       if (obj->type->is_pointer) goto els;
       parser_error(parser, "lvalue is an array (needs to be indexed).");
@@ -376,15 +430,15 @@ node_t* parse_lvalue(parser_t* parser) {
     return node;
   } else {
 els:
-    parser_consume(parser);
-    node = NEW_DATA(node_t);
+    /*node = NEW_DATA(node_t);
     node->type = NODE_ID;
-    node->tok = name;
+    node->tok = name;*/
+    node = parse_id(parser);
     return node;
   }
 }
 
-node_t* parse_var_decl(parser_t* parser, bool param) {
+node_t* parse_var_decl(parser_t* parser, bool param, bool struc_member) {
   token_t* name = parser_consume(parser);
   parser_eat(parser, TOK_COLON);
   type_t* type = parser_get_type(parser);
@@ -396,8 +450,9 @@ node_t* parse_var_decl(parser_t* parser, bool param) {
   node_t* node = NEW_DATA(node_t);
   var_t* var = NEW_DATA(var_t);
   if (next->type == TOK_EQ) {
-    if (param) {
-      parser_error(parser, "Cannot initialise variable in a parameter.");
+    if (param || struc_member) {
+      parser_error(parser, "Cannot initialise variable in a parameter/member.");
+      return NULL;
     }
     parser_consume(parser);
     node_t* lhs = parse_expr(parser, type);
@@ -411,7 +466,7 @@ node_t* parse_var_decl(parser_t* parser, bool param) {
       parser_error(parser, "Unexpected token. Expected ',' or ')' but got '%.*s'.", parser->token->text_len, parser->token->text);
     }
   } else {
-    if (next->type != TOK_EQ && next->type != TOK_SEMI) {
+    if (next->type != TOK_EQ && next->type != TOK_SEMI && !struc_member) {
       parser_error(parser, "Unexpected token. Expected '=' or ';' but got '%.*s'.", next->text_len, next->text);
     }
     if (parser->token->type != TOK_SEMI) {
@@ -424,7 +479,7 @@ node_t* parse_var_decl(parser_t* parser, bool param) {
   var->type = type;
   var->glb = parser->scope->glob_scope;
   node->data = var;
-  parser_new_obj(parser, type, name, parse_str(name), true, parser->scope->glob_scope, NULL);
+  if (!struc_member) parser_new_obj(parser, type, name, parse_str(name), true, parser->scope->glob_scope, NULL);
   return node;
 }
 
@@ -444,7 +499,7 @@ list_t* parser_param_list(parser_t* parser, bool* undef_params) {
       break;
     }
     parser_eat(parser, TOK_VAR); // Eat the var keyword
-    list_add(params, parse_var_decl(parser, true));
+    list_add(params, parse_var_decl(parser, true, false));
     if (parser->token->type != TOK_COMMA && parser->token->type != TOK_RPAR) {
       parser_error(parser, "Unexpected token. Expected ',' or ')' but got '%.*s'.",
         parser->token->text_len, parser->token->text);
@@ -667,7 +722,7 @@ node_t* parse_for(parser_t* parser) {
     primary_stmt = parse_assign(parser, true);
   } else {
     parser_expect(parser, TOK_VAR);
-    primary_stmt = parse_var_decl(parser, false);
+    primary_stmt = parse_var_decl(parser, false, false);
   }
   parser_consume(parser);
   node_t* cond = parse_condition(parser);
@@ -716,6 +771,39 @@ node_t* parse_while(parser_t* parser) {
   return node;
 }
 
+void parse_struct_decl(parser_t* parser) {
+  token_t* name = parser_eat(parser, TOK_ID);
+  basetype_t* type = (basetype_t*)NEW_DATA(basetype_t);
+
+  type->_struct = true;
+  type->members = list_create();
+  int size = 0;
+  parser_eat(parser, TOK_LBRAC);
+  parser_consume(parser);
+  while (parser->token->type != TOK_RBRAC) {
+    node_t* node = parse_var_decl(parser, false, true);
+    var_t* var = ((var_t*)node->data);
+    free(node);
+    list_add(type->members, var);
+    if (var->type->is_pointer) {
+      size += 8;
+    } else if (var->type->is_arr) {
+      type_t* temp = var->type;
+      while (temp->pointer) {
+        temp = temp->pointer;
+        size += var->type->type->size * temp->arr_size->value;
+      }
+    } else {
+      size += var->type->type->size;
+    }
+    parser_consume(parser); // skip ;
+  }
+  parser_consume(parser); // eat }
+  type->size = size;
+
+  type_checker_add(parser->tychk, name, type);
+}
+
 node_t* parse_stmt(parser_t* parser) {
   node_t* ret;
   switch (parser->token->type) {
@@ -747,7 +835,7 @@ node_t* parse_stmt(parser_t* parser) {
       parser_consume(parser); // skip ;
       break;
     case TOK_VAR:
-      ret = parse_var_decl(parser, false);
+      ret = parse_var_decl(parser, false, false);
       parser_consume(parser); // skip ;
       break;
     case TOK_EOF: {
@@ -779,16 +867,20 @@ void parser_parse(parser_t* parser) {
     node_t* node;
     switch (parser->token->type) {
       case TOK_VAR:
-        node = parse_var_decl(parser, false);
+        node = parse_var_decl(parser, false, false);
         parser_consume(parser); // skip ;
+        list_add(parser->ast, node);
         break;
       case TOK_FN: // TODO: Handle static for fn declaration
         node = parse_fn_decl(parser);
+        list_add(parser->ast, node);
+        break;
+      case TOK_STRUCT:
+        parse_struct_decl(parser);
         break;
       default:
         parser_error(parser, "Unexpected expression outside of scope.\n");
         break;
     }
-    list_add(parser->ast, node);
   }
 }

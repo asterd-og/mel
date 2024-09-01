@@ -193,9 +193,8 @@ node_t* parse_factor(parser_t* parser, type_t* type) {
         parser_error(parser, "'%s' is a function, not a variable.", obj->name);
         return NULL;
       }
-      node = NEW_DATA(node_t);
-      node->type = NODE_ID;
-      node->tok = tok;
+      node = parse_id(parser);
+      parser_rewind(parser);
       break;
     }
     case TOK_NOT:
@@ -300,6 +299,10 @@ node_t* parse_simple_expr(parser_t* parser) {
 
 node_t* parse_expr(parser_t* parser, type_t* type) {
   if (parser->token->type == TOK_LSQBR) {
+    if (type->is_pointer) {
+      parser_error(parser, "Trying to initialise a pointer with an array.");
+      return NULL;
+    }
     parser_consume(parser);
     return parse_array(parser, type);
   } else if (parser->token->type == TOK_AMPER) {

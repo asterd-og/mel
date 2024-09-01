@@ -28,7 +28,7 @@ const char* word_sizes[] = {
 };
 
 int x86_get_size(type_t* type) {
-  if (type->is_pointer) return 8;
+  if (type->is_pointer || type->type->_struct) return 8;
   return type->type->size;
 }
 
@@ -106,8 +106,10 @@ char* x86_get_mov64(type_t* type) {
 
 int x86_new_local(cg_t* cg, int reg, type_t* type, bool initialised) {
   int offset = cg_new_offset(cg, type);
-  fprintf(cg->out, "\tmov %s [rbp%d], %s\n", word_sizes[x86_get_size(type)],
-    offset, (initialised ? x86_get_reg(cg, reg) : "0"));
+  if (initialised) {
+    fprintf(cg->out, "\tmov [rbp%d], %s\n",
+      offset, (initialised ? x86_get_reg(cg, reg) : "0"));
+  }
   return offset;
 }
 
@@ -404,7 +406,11 @@ void x86_setup_stack(cg_t* cg) {
       size += (final_size * obj->type->type->size);
       continue;
     }
-    size += x86_get_size(obj->type);
+    if (obj->type->type->_struct) {
+      size += obj->type->type->size;
+    } else {
+      size += x86_get_size(obj->type);
+    }
   }
   if (size > 0) fprintf(cg->out, "\tsub rsp, %d\n", (size + 15) & ~15 /* align to nearest multiple of 16 */);
 }

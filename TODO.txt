@@ -1,6 +1,7 @@
 TODO:
 
 Error the user if array dimension difference
+Check if dereferencing pointer is the same type
 
 multiple conditions (while (cond1 && cond2 && cond3 || cond4))
 

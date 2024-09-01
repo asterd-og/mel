@@ -1,6 +1,8 @@
 #include "ast_viewer.h"
 #include <stdio.h>
 
+// This is a mess, but its just a way for me to visualise the AST, not an actual super important piece of the program.
+
 int ident = 0;
 
 void expr_view(node_t* node);
@@ -48,6 +50,15 @@ void term_view(node_t* node) {
       printf("&");
       expr_view(node->lhs);
       break;
+    case NODE_STRUCT_ACC:
+      printf("%.*s", node->tok->text_len, node->tok->text);
+      node_t* temp = node;
+      while (temp->lhs) {
+        printf(".");
+        temp = temp->lhs;
+        printf("%.*s", temp->tok->text_len, temp->tok->text);
+      }
+      break;
     case NODE_FN_CALL:
       fn_call_view(node, false);
       break;
@@ -62,7 +73,7 @@ void expr_view(node_t* node) {
     term_view(node);
     return;
   }
-  node_t* lhs = (node->type == NODE_AT || node->type == NODE_REF ? node : node->lhs);
+  node_t* lhs = (node->type == NODE_AT || node->type == NODE_REF || node->type == NODE_STRUCT_ACC ? node : node->lhs);
   printf("(");
   static char* table[] = {"+", "-", "*", "/", "%", "<<", ">>", "&", "|", "^"};
   term_view(lhs);
@@ -132,7 +143,7 @@ void var_decl_view(node_t* node, bool param) {
   printf("var %.*s: ", var->name->text_len, var->name->text);
   type_view(var->type);
   if (!var->initialised) {
-    if (!param) printf(";\n");
+    if (!param) printf(";");
     return;
   }
   printf(" = ");

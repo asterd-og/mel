@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "x86asm.h"
 #include <stdio.h>
+#include <string.h>
 
 cg_t* cg_create(list_t* ast, char* out_fname) {
   cg_t* cg = (cg_t*)malloc(sizeof(cg_t));
@@ -39,7 +40,11 @@ void cg_reg_free(cg_t* cg, int reg) {
 }
 
 int cg_new_offset(cg_t* cg, type_t* type) {
-  cg->stack_offset += x86_get_size(type);
+  if (type->type->_struct) {
+    cg->stack_offset += type->type->size;
+  } else {
+    cg->stack_offset += x86_get_size(type);
+  }
   return -cg->stack_offset;
 }
 
@@ -82,12 +87,13 @@ cg_obj_t* cg_find_object(cg_t* cg, char* name) {
 
 void cg_stmt(cg_t* cg, node_t* node);
 int cg_fn_call(cg_t* cg, node_t* node, bool arg);
+int cg_get_struct_member(cg_t* cg, node_t* node, type_t* type);
 
 // Return register of the resulting expression.
 int cg_expr(cg_t* cg, node_t* node) {
   int lhs_reg = 0; int rhs_reg = 0; 
-  if (node->lhs) lhs_reg = cg_expr(cg, node->lhs);
-  if (node->rhs) rhs_reg = cg_expr(cg, node->rhs);
+  if (node->lhs && node->type != NODE_STRUCT_ACC) lhs_reg = cg_expr(cg, node->lhs);
+  if (node->rhs && node->type != NODE_STRUCT_ACC) rhs_reg = cg_expr(cg, node->rhs);
   int reg = 0;
   switch (node->type) {
     case NODE_ADD:
@@ -151,6 +157,17 @@ int cg_expr(cg_t* cg, node_t* node) {
       reg = cg_reg_alloc(cg);
       fprintf(cg->out, "\tmov %s, [%s]\n", x86_get_reg(cg, reg), x86_get_reg(cg, ref));
       cg_reg_free(cg, ref);
+      break;
+    }
+    case NODE_STRUCT_ACC: {
+      // FIXME: Also remember to load globals!
+      int off = cg_get_struct_member(cg, node, NULL);
+      reg = cg_reg_alloc(cg);
+      char* name_str = parse_str(node->tok);
+      cg_obj_t* obj = cg_find_object(cg, name_str);
+      free(name_str);
+      fprintf(cg->out, "\tmov %s, [rbp%d+%s]\n", x86_get_reg(cg, reg), obj->offset, x86_get_reg(cg, off));
+      cg_reg_free(cg, off);
       break;
     }
   }
@@ -263,7 +280,7 @@ void cg_var_def(cg_t* cg, node_t* node) {
     offset = x86_new_local(cg, reg, var->type, var->initialised);
     cg_reg_free(cg, reg);
   } else {
-    if (!var->initialised) {
+    if (!var->initialised && var->type->is_arr) {
       cg->stack_offset += cg->current_type->type->size * final_size;
       offset = -cg->stack_offset;
     } else {
@@ -402,6 +419,48 @@ int cg_arr_idx(cg_t* cg, node_t* node) {
   return reg;
 }
 
+int cg_get_struct_member(cg_t* cg, node_t* node, type_t* type) {
+  if (!type) {
+    char* name = parse_str(node->tok);
+    cg_obj_t* obj = cg_find_object(cg, name);
+    free(name);
+    type = obj->type;
+  }
+  node_t* temp = node;
+  list_t* list = type->type->members;
+  int off = 0;
+  int reg = -1;
+  int off_reg;
+
+  temp = temp->lhs;
+  var_t* var;
+  for (list_item_t* item = list->head->next; item != list->head; item = item->next) {
+    var = (var_t*)item->data;
+    if (!strncmp(temp->tok->text, var->name->text, temp->tok->text_len)) {
+      cg->current_type = var->type;
+      break;
+    }
+    if (var->type->type->_struct) {
+      off += var->type->type->size;
+    } else {
+      off += x86_get_size(var->type);
+    }
+  }
+  if (var->type->type->_struct) {
+    if (reg >= 0) {
+      cg_reg_free(cg, reg);
+    }
+    reg = cg_get_struct_member(cg, temp, var->type);
+    off_reg = x86_load_int(cg, off);
+    x86_add(cg, reg, off_reg);
+  }
+
+  if (reg == -1) {
+    reg = x86_load_int(cg, off);
+  }
+  return reg;
+}
+
 char* cg_get_obj(cg_t* cg, token_t* name, node_t* node) {
   type_t* type;
   char* output = (char*)malloc(40);
@@ -436,6 +495,13 @@ char* cg_get_obj(cg_t* cg, token_t* name, node_t* node) {
   } else if (node->type == NODE_AT) {
     int reg = x86_ref(cg, node, false);
     sprintf(output, "[%s]", x86_get_reg(cg, reg));
+  } else if (node->type == NODE_STRUCT_ACC) {
+    // FIXME: Check if var is global
+    char* name_str = parse_str(node->tok);
+    cg_obj_t* obj = cg_find_object(cg, name_str);
+    int reg = cg_get_struct_member(cg, node, NULL);
+    sprintf(output, "[rbp%d+%s]", obj->offset, x86_get_reg(cg, reg));
+    free(name_str);
   }
   return output;
 }

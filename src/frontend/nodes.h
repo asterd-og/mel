@@ -46,6 +46,7 @@ enum {
   NODE_NOTEQ, NODE_DBAND, NODE_DBOR,
 
   NODE_ARR_IDX, NODE_AT, NODE_REF,
+  NODE_STRUCT_ACC,
 };
 
 typedef struct node_t {
@@ -61,10 +62,12 @@ typedef struct node_t {
 } node_t;
 
 typedef struct {
+  bool _struct;
   bool _signed;
   int size; // in bytes
   int alignment;
   char* name;
+  list_t* members; // Needs to be a list, so I can easily calculate the offset of X member
 } basetype_t;
 
 typedef struct type_t {

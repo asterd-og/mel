@@ -40,6 +40,7 @@ const char* type_to_str[] = {
   "TOK_PIPE",
   "TOK_DBPIPE",
   "TOK_AT",
+  "TOK_DOT",
   "TOK_3DOT",
   "TOK_IF",
   "TOK_ELSE",

@@ -1,6 +1,7 @@
 #include "type_checker.h"
 #include <stdlib.h>
 #include <string.h>
+#include "parser.h"
 
 basetype_t* u8, *u16, *u32, *u64;
 basetype_t* i8, *i16, *i32, *i64, *_void;
@@ -45,4 +46,7 @@ basetype_t* type_checker_check(type_checker_t* tychk, token_t* tok) {
 }
 
 void type_checker_add(type_checker_t* tychk, token_t* name, basetype_t* type) {
+  char* pname = parse_str(name);
+  type->name = pname;
+  hashmap_add(tychk->types_hm, pname, type);
 }
