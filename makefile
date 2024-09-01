@@ -1,6 +1,7 @@
 all: build run
 
 build:
+	-mkdir out
 	clang -g $(shell find . -name "*.c") -o out/mel
 
 run:
