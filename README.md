@@ -8,7 +8,7 @@
 - This language will have a lib, once its more finished, that will be written most likely in C, Assembly and Mel.
 
 # Why is the source code a mess
-- Because I haven't got the time to refactor it yet, but I do plan on making it nicer, dw about it for now (I'm insecure about my code)
+- Because I haven't got the time to refactor it yet, but I do plan on making it nicer, dw about it for now (I'm insecure about my code, please go easy on it, as its also just a hobby project)
 
 # Known bugs/missing features
 - On the TODO.txt file, there are a list of missing features or bugs that I know of, and that I will fix
