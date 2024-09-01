@@ -51,7 +51,7 @@ node_t* parse_shift_expr(parser_t* parser, type_t* type) {
         temp->type = NODE_SHL;
         temp->lhs = lhs;
         temp->rhs = rhs;
-        temp->tok = op_tok->type;
+        temp->tok = op_tok;
         lhs = temp;
         break;
       case TOK_GT:
@@ -63,7 +63,7 @@ node_t* parse_shift_expr(parser_t* parser, type_t* type) {
         temp->type = NODE_SHR;
         temp->lhs = lhs;
         temp->rhs = rhs;
-        temp->tok = op_tok->type;
+        temp->tok = op_tok;
         lhs = temp;
         break;
       default:
@@ -89,7 +89,7 @@ node_t* parse_bitwise_expr(parser_t* parser, type_t* type) {
         temp->type = NODE_OR;
         temp->lhs = lhs;
         temp->rhs = rhs;
-        temp->tok = op_tok->type;
+        temp->tok = op_tok;
         lhs = temp;
         break;
       case TOK_HAT:
@@ -99,7 +99,7 @@ node_t* parse_bitwise_expr(parser_t* parser, type_t* type) {
         temp->type = NODE_XOR;
         temp->lhs = lhs;
         temp->rhs = rhs;
-        temp->tok = op_tok->type;
+        temp->tok = op_tok;
         lhs = temp;
         break;
       case TOK_AMPER:
@@ -109,7 +109,7 @@ node_t* parse_bitwise_expr(parser_t* parser, type_t* type) {
         temp->type = NODE_AND;
         temp->lhs = lhs;
         temp->rhs = rhs;
-        temp->tok = op_tok->type;
+        temp->tok = op_tok;
         lhs = temp;
         break;
       default:
@@ -135,7 +135,7 @@ node_t* parse_term(parser_t* parser, type_t* type) {
         temp->type = NODE_MUL;
         temp->lhs = lhs;
         temp->rhs = rhs;
-        temp->tok = op_tok->type;
+        temp->tok = op_tok;
         lhs = temp;
         break;
       case TOK_DIV:
@@ -145,7 +145,7 @@ node_t* parse_term(parser_t* parser, type_t* type) {
         temp->type = NODE_DIV;
         temp->lhs = lhs;
         temp->rhs = rhs;
-        temp->tok = op_tok->type;
+        temp->tok = op_tok;
         lhs = temp;
         break;
       case TOK_MOD:
@@ -155,7 +155,7 @@ node_t* parse_term(parser_t* parser, type_t* type) {
         temp->type = NODE_MOD;
         temp->lhs = lhs;
         temp->rhs = rhs;
-        temp->tok = op_tok->type;
+        temp->tok = op_tok;
         lhs = temp;
         break;
       default:

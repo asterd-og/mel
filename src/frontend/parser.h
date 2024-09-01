@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include "../list.h"
 #include "lexer.h"
 #include "nodes.h"
@@ -70,6 +71,8 @@ node_t* parse_expression(parser_t* parser, type_t* type);
 
 node_t* parse_simple_expr(parser_t* parser);
 node_t* parse_lvalue(parser_t* parser);
+
+void parse_struct_decl(parser_t* parser);
 
 node_t* parse_stmt(parser_t* parser);
 node_t* parse_fn_call(parser_t* parser, bool stmt);

@@ -88,6 +88,7 @@ cg_obj_t* cg_find_object(cg_t* cg, char* name) {
 void cg_stmt(cg_t* cg, node_t* node);
 int cg_fn_call(cg_t* cg, node_t* node, bool arg);
 int cg_get_struct_member(cg_t* cg, node_t* node, type_t* type);
+int cg_arr_idx(cg_t* cg, node_t* node);
 
 // Return register of the resulting expression.
 int cg_expr(cg_t* cg, node_t* node) {
