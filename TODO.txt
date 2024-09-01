@@ -20,4 +20,7 @@ Assertions
 ========================
 Code Gen TODO:
 
+Structure initialisation (maybe)
+Fix strings in structures
+
 Fix stack strings assignment problem (str[n] = ...)

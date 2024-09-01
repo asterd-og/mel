@@ -178,8 +178,6 @@ int x86_idx_arr(cg_t* cg, int reg, char* name, bool assign) {
       printf("TODO!\n");
       exit(1);
     }
-    /*fprintf(cg->out, "\tmov %s, %s [rbp%d+%s]\n", x86_get_reg(cg, res), word_sizes[x86_get_size(obj->type)],
-      obj->offset, x86_get_reg(cg, reg));*/
     fprintf(cg->out, "\t%s %s, %s [rbp%d+%s]\n", x86_get_mov64(obj->type), x86_get_reg(cg, res),
      word_sizes[x86_get_size(obj->type)], obj->offset, regs64[reg]);
   } else {
@@ -189,7 +187,7 @@ int x86_idx_arr(cg_t* cg, int reg, char* name, bool assign) {
     int mul = reg;
     int size = x86_load_int(cg, 8);
     type_t* temp = obj->type->pointer;
-    while (temp->pointer->is_pointer) {
+    while (temp->pointer && temp->pointer->is_pointer) {
       temp = temp->pointer;
       mul = x86_mul(cg, mul, size);
     }

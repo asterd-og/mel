@@ -1,0 +1,38 @@
+fn print(var fmt: char*): void;
+fn printInt(var num: u64): void;
+fn printChar(var num: char): void;
+fn allocMem(var size: u64): u64*;
+fn freeMem(var ptr: u64*): void;
+fn getRand(var max: u64): u64;
+fn printFmt(var fmt: char*, ...): u64;
+fn getInput(var buf: char*, var size: int): char*;
+
+struct grades {
+  var math: u64;
+  var science: u64;
+  var english: u64;
+  var history: u64;
+  var geography: u64;
+}
+
+struct student {
+  var age: u64;
+  var info: grades;
+}
+
+fn main(): int {
+  var test: student;
+  test.age = 16;
+  test.info.math = 10;
+  test.info.science = 6;
+  test.info.english = 10;
+  test.info.history = 8;
+  test.info.geography = 9;
+  printFmt("Student Age: %ld\nGrades:\n", test.age);
+  printFmt("Math: %ld\n", test.info.math);
+  printFmt("Science: %ld\n", test.info.science);
+  printFmt("English: %ld\n", test.info.english);
+  printFmt("History: %ld\n", test.info.history);
+  printFmt("Geography: %ld\n", test.info.geography);
+  ret 0;
+}

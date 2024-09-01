@@ -7,16 +7,8 @@ fn getRand(var max: u64): u64;
 fn printFmt(var fmt: char*, ...): u64;
 fn getInput(var buf: char*, var size: int): char*;
 
-struct person {
-  var age: u64;
-  var stamina: u64;
-}
-
 fn main(): int {
-  var player: person;
-  player.age = 27;
-  player.stamina = 100;
-
-  printFmt("%ld %ld\n", player.age, player.stamina);
+  var world: char* = "world";
+  printFmt("Hello %s!\n", world);
   ret 0;
 }
