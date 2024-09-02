@@ -1,0 +1,53 @@
+fn print(var fmt: char*): void;
+fn printInt(var num: u64): void;
+fn printChar(var num: char): void;
+fn allocMem(var size: u64): u64*;
+fn freeMem(var ptr: u64*): void;
+fn getRand(var max: u64): u64;
+fn printFmt(var fmt: char*, ...): u64;
+fn getInput(var buf: char*, var size: int): char*;
+
+struct string {
+  var size: u64;
+  var data: char*;
+}
+
+fn strCpy(var dest: char*, var src: char*): void {
+  var idx: int = 0;
+  while (src[idx] != 0) {
+    dest[idx] = src[idx];
+    idx += 1;
+  }
+}
+
+fn strLen(var src: char*): int {
+  var len: int = 0;
+  while (src[len] != 0) {
+    len += 1;
+  }
+  ret len;
+}
+
+fn newString(var data: char*): string* {
+  var str: string* = allocMem(16);
+  var idx: u64 = strLen(data);
+  str.data = allocMem(idx);
+  str.size = idx;
+  strCpy(str.data, data);
+  printFmt("%s\n", data);
+  printFmt("%lx %ld %ld\n", str.data, str.size, idx);
+  printFmt("%s\n", str.data);
+  ret 0;
+}
+
+fn printString(var str: string*): void {
+  printFmt("%s\n", str.data);
+}
+
+/*
+*/
+
+fn main(): int {
+  var test: string* = newString("New string!\n");
+  ret 0;
+}

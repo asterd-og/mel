@@ -1,5 +1,7 @@
 TODO:
 
+struct.member[idx]
+
 Error the user if array dimension difference
 Check if dereferencing pointer is the same type
 
@@ -24,3 +26,8 @@ Structure initialisation (maybe)
 Fix strings in structures
 
 Fix stack strings assignment problem (str[n] = ...)
+
+========================
+Lib TODO:
+
+Add HolyC-like casting (toU64(), toU32(), toPtr())

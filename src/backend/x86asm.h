@@ -21,7 +21,7 @@ int x86_load_int(cg_t* cg, int64_t val);
 int x86_load_id(cg_t* cg, char* name, node_t* node);
 int x86_load_str(cg_t* cg, token_t* tok);
 int x86_idx_arr(cg_t* cg, int reg, char* name, bool assign);
-int x86_fn_call(cg_t* cg, char* name, bool alloc);
+int x86_fn_call(cg_t* cg, char* name, bool alloc, int align);
 int x86_ref(cg_t* cg, node_t* expr, bool lea);
 int x86_add(cg_t* cg, int reg_1, int reg_2);
 int x86_sub(cg_t* cg, int reg_1, int reg_2);

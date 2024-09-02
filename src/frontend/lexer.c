@@ -100,7 +100,7 @@ void lexer_error(lexer_t* l, const char* fmt, ...) {
     }
     fprintf(stderr, " ");
   }
-  fprintf(stderr, "\e[0;32m^ \e[0;31mError: \e[0;37m");
+  fprintf(stderr, "\e[0;32m^ \e[0;31mError: \e[0;39m");
   va_list ap;
   va_start(ap, fmt);
   vfprintf(stderr, fmt, ap);

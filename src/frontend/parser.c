@@ -38,7 +38,7 @@ void parser_msgat(parser_t* parser) {
 
 void parser_error(parser_t* parser, const char* fmt, ...) {
   parser_msgat(parser);
-  fprintf(stderr, " \e[0;31mError: \e[0;37m");
+  fprintf(stderr, " \e[0;31mError: \e[0;39m");
   va_list ap;
   va_start(ap, fmt);
   vfprintf(stderr, fmt, ap);
@@ -49,7 +49,7 @@ void parser_error(parser_t* parser, const char* fmt, ...) {
 
 void parser_warn(parser_t* parser, const char* fmt, ...) {
   parser_msgat(parser);
-  fprintf(stderr, " \e[0;33mWarning: \e[0;37m");
+  fprintf(stderr, " \e[0;33mWarning: \e[0;39m");
   va_list ap;
   va_start(ap, fmt);
   vfprintf(stderr, fmt, ap);

@@ -13,6 +13,7 @@ cg_t* cg_create(list_t* ast, char* out_fname) {
   cg->strings = list_create();
   cg->glb_vars = list_create();
   cg->reg_stack = stack_create(100);
+  cg->structs = hashmap_create(50, 5);
   cg->scope = NULL;
   cg->label_cnt = 0;
   if (!cg->out) {
@@ -40,7 +41,7 @@ void cg_reg_free(cg_t* cg, int reg) {
 }
 
 int cg_new_offset(cg_t* cg, type_t* type) {
-  if (type->type->_struct) {
+  if (type->type->_struct && !type->is_pointer) {
     cg->stack_offset += type->type->size;
   } else {
     cg->stack_offset += x86_get_size(type);
@@ -87,6 +88,7 @@ cg_obj_t* cg_find_object(cg_t* cg, char* name) {
 
 void cg_stmt(cg_t* cg, node_t* node);
 int cg_fn_call(cg_t* cg, node_t* node, bool arg);
+int cg_struct_acc(cg_t* cg, cg_obj_t* obj, node_t* node, int off, bool assign);
 int cg_get_struct_member(cg_t* cg, node_t* node, type_t* type);
 int cg_arr_idx(cg_t* cg, node_t* node);
 
@@ -162,12 +164,12 @@ int cg_expr(cg_t* cg, node_t* node) {
     }
     case NODE_STRUCT_ACC: {
       // FIXME: Also remember to load globals!
+      // TODO: We can move this obj stuff to the cg_struct_acc
       int off = cg_get_struct_member(cg, node, NULL);
-      reg = cg_reg_alloc(cg);
       char* name_str = parse_str(node->tok);
       cg_obj_t* obj = cg_find_object(cg, name_str);
       free(name_str);
-      fprintf(cg->out, "\tmov %s, [rbp%d+%s]\n", x86_get_reg(cg, reg), obj->offset, x86_get_reg(cg, off));
+      reg = cg_struct_acc(cg, obj, node, off, false);
       cg_reg_free(cg, off);
       break;
     }
@@ -223,7 +225,7 @@ void cg_fn_def(cg_t* cg, node_t* node) {
     node_t* node = (node_t*)item->data;
     var_t* var = (var_t*)node->data;
     cg->current_type = var->type;
-    int offset = x86_new_param(cg, count++, var->type);
+    int offset = x86_new_param(cg, count++, (var->type->is_pointer ? ty_u64 : var->type));
     cg_new_object(cg, parse_str(var->name), false, offset, var->type, NULL);
     cg->reg_bitmap = 0;
   }
@@ -236,6 +238,50 @@ void cg_fn_def(cg_t* cg, node_t* node) {
     fprintf(cg->out, "\tret\n");
   }
   cg_back_scope(cg);
+}
+
+cg_struct_t* cg_define_struct_members(type_t* type) {
+  hashmap_t* hm = hashmap_create(50, 5);
+  list_t* list = type->type->members;
+  int off = 0;
+  int arr_size = 0;
+  for (list_item_t* item = list->head->next; item != list->head; item = item->next) {
+    var_t* var = (var_t*)item->data;
+    cg_obj_t* obj = (cg_obj_t*)malloc(sizeof(cg_obj_t));
+    obj->glb = false;
+    obj->offset = off;
+    obj->type = var->type;
+    if (var->type->is_pointer) {
+      off += 8;
+    } else if (var->type->is_arr) {
+      type_t* temp = var->type;
+      while (temp->pointer) {
+        temp = temp->pointer;
+        off += var->type->type->size * temp->arr_size->value;
+        arr_size += var->type->type->size * temp->arr_size->value;
+      }
+    } else {
+      if (var->type->type->_struct) {
+        obj->_struct = cg_define_struct_members(var->type);
+      }
+      off += var->type->type->size;
+    }
+    char* pname = parse_str(var->name);
+    hashmap_add(hm, pname, obj);
+    free(pname);
+  }
+  cg_struct_t* _struct = (cg_struct_t*)malloc(sizeof(cg_struct_t));
+  _struct->members = hm;
+  return _struct;
+}
+
+cg_struct_t* cg_get_struct(cg_t* cg, type_t* type) {
+  cg_struct_t* _struct = hashmap_get(cg->structs, type->type->name);
+  if (!_struct) {
+    _struct = cg_define_struct_members(type);
+    hashmap_add(cg->structs, type->type->name, _struct);
+  }
+  return _struct;
 }
 
 void cg_var_def(cg_t* cg, node_t* node) {
@@ -256,6 +302,7 @@ void cg_var_def(cg_t* cg, node_t* node) {
   int reg = 0;
   int stack_off = 0;
   int final_size;
+  cg_struct_t* _struct;
   if (var->type->is_arr) {
     final_size = var->type->pointer->arr_size->value;
     int old_size = 0;
@@ -268,6 +315,9 @@ void cg_var_def(cg_t* cg, node_t* node) {
       cg->stack_offset += cg->current_type->type->size * final_size;
       stack_off = cg->stack_offset;
     }
+  }
+  if (var->type->type->_struct) {
+    _struct = cg_get_struct(cg, var->type);
   }
   if (var->initialised) {
     reg = cg_expr_or_arr(cg, node->lhs);
@@ -288,7 +338,7 @@ void cg_var_def(cg_t* cg, node_t* node) {
       offset = reg;
     }
   }
-  cg_new_object(cg, parse_str(var->name), false, offset, var->type, NULL)->item_count = item_count;
+  cg_new_object(cg, parse_str(var->name), false, offset, var->type, NULL)->_struct = _struct;
   cg->reg_bitmap = 0;
 }
 
@@ -356,12 +406,8 @@ int cg_fn_call(cg_t* cg, node_t* node, bool arg) {
       pos--;
     }
   }
-  int reg = x86_fn_call(cg, name, arg);
+  int reg = x86_fn_call(cg, name, arg, align);
   free(name);
-  if (align > 0) {
-    fprintf(cg->out, "\tadd rsp, %d\n", align * 2);
-  }
-  x86_restore_used_regs(cg);
   if (arg)
     return reg;
   if (reg >= 0) cg_reg_free(cg, reg);
@@ -420,6 +466,21 @@ int cg_arr_idx(cg_t* cg, node_t* node) {
   return reg;
 }
 
+int cg_struct_acc(cg_t* cg, cg_obj_t* obj, node_t* node, int off, bool assign) {
+  int ptr = cg_reg_alloc(cg);
+  if (obj->type->is_pointer) {
+    fprintf(cg->out, "\tlea %s, [rbp%d]\n", x86_get_reg(cg, ptr), obj->offset);
+    x86_add(cg, ptr, off);
+    if (!assign) {
+      fprintf(cg->out, "\tmov %s, [%s]\n", regs64[ptr], regs64[ptr]);
+    }
+  } else {
+    // TODO: What if global?!?!?!?!?!?
+    fprintf(cg->out, "\tmov %s, [rbp%d+%s]\n", x86_get_reg(cg, ptr), obj->offset, regs64[off]);
+  }
+  return ptr;
+}
+
 int cg_get_struct_member(cg_t* cg, node_t* node, type_t* type) {
   if (!type) {
     char* name = parse_str(node->tok);
@@ -427,37 +488,20 @@ int cg_get_struct_member(cg_t* cg, node_t* node, type_t* type) {
     free(name);
     type = obj->type;
   }
-  node_t* temp = node;
-  list_t* list = type->type->members;
-  int off = 0;
+  cg_struct_t* _struct = cg_get_struct(cg, type);
+  char* name = parse_str(node->lhs->tok);
+  cg_obj_t* obj = hashmap_get(_struct->members, name);
   int reg = -1;
-  int off_reg;
-
-  temp = temp->lhs;
-  var_t* var;
-  for (list_item_t* item = list->head->next; item != list->head; item = item->next) {
-    var = (var_t*)item->data;
-    if (!strncmp(temp->tok->text, var->name->text, temp->tok->text_len)) {
-      cg->current_type = var->type;
-      break;
-    }
-    if (var->type->type->_struct) {
-      off += var->type->type->size;
-    } else {
-      off += x86_get_size(var->type);
-    }
-  }
-  if (var->type->type->_struct) {
-    if (reg >= 0) {
-      cg_reg_free(cg, reg);
-    }
-    reg = cg_get_struct_member(cg, temp, var->type);
-    off_reg = x86_load_int(cg, off);
+  if (obj->_struct && !obj->type->is_pointer) {
+    reg = cg_get_struct_member(cg, node->lhs, obj->type);
+    int off_reg = x86_load_int(cg, obj->offset);
     x86_add(cg, reg, off_reg);
+  } else {
+    // TODO
   }
-
+  free(name);
   if (reg == -1) {
-    reg = x86_load_int(cg, off);
+    reg = x86_load_int(cg, obj->offset);
   }
   return reg;
 }
@@ -501,7 +545,13 @@ char* cg_get_obj(cg_t* cg, token_t* name, node_t* node) {
     char* name_str = parse_str(node->tok);
     cg_obj_t* obj = cg_find_object(cg, name_str);
     int reg = cg_get_struct_member(cg, node, NULL);
-    sprintf(output, "[rbp%d+%s]", obj->offset, x86_get_reg(cg, reg));
+    if (obj->type->is_pointer) {
+      int ptr = cg_struct_acc(cg, obj, node, reg, true);
+      sprintf(output, "[%s]", regs64[ptr]);
+      cg_reg_free(cg, reg);
+    } else {
+      sprintf(output, "[rbp%d+%s]", obj->offset, regs64[reg]);
+    }
     free(name_str);
   }
   return output;

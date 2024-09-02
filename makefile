@@ -2,13 +2,12 @@ all: build run
 
 build:
 	-mkdir out
-	clang -g $(shell find . -name "*.c") -o out/mel
+	clang -g $(shell find . -name "*.c") -DDEBUG -o out/mel
 
 run:
-	./out/mel tests/helloworld.mel test
+	./out/mel tests/test.mel test
 
 comp:
 	nasm -felf64 out.asm -o out.o
-	nasm -felf64 mel_lib.asm -o mlib.o
-	gcc out.o mlib.o lib/mlib.o -o test
+	gcc out.o lib/mlib.a -o test
 	./test

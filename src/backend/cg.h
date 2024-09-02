@@ -9,11 +9,16 @@
 #include "../stack.h"
 
 typedef struct {
+  hashmap_t* members; // Gonna have a hashmap of objs, with the offset always starting at 0
+} cg_struct_t;
+
+typedef struct {
   bool glb;
   int offset;
   type_t* type;
   fun_t* fun;
   int item_count; // array
+  cg_struct_t* _struct;
 } cg_obj_t;
 
 typedef struct cg_scope_t {
@@ -44,6 +49,7 @@ typedef struct {
   bool current_func_ret; // Check if current function has returned or not
   hashmap_t* glb_objs;
   hashmap_t* locl_objs;
+  hashmap_t* structs; // Hashmap of cg_struct_t
   cg_scope_t* scope;
   list_t* strings;
   list_t* glb_vars; // To put in data section

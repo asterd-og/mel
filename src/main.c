@@ -57,19 +57,26 @@ int main(int argc, char** argv) {
   parser_t* parser = parser_create(lexer);
   parser_parse(parser);
 
-  /*printf("AST Viewer results:\n");
+  char* asm_name;
+  char* obj_name;
 
-  ast_view(parser->ast);*/
+#ifdef DEBUG
+  asm_name = "out.asm";
+  printf("AST Viewer results:\n");
 
+  ast_view(parser->ast);
+#else
   srand(time(NULL));
   char* asm_name = (char*)malloc(11); // 6 random digits (dot) asm
   char* obj_name = (char*)malloc(11); // 6 random digits (dot) asm
   uint32_t num = rand() % 999999;
   sprintf(asm_name, "%06d.asm", num);
   sprintf(obj_name, "%06d.o", num);
+#endif
   cg_t* cg = cg_create(parser->ast, asm_name);
   cg_gen(cg);
 
+#ifndef DEBUG
   char* cmd = (char*)malloc(50);
   char* cmd2 = (char*)malloc(50);
   sprintf(cmd, "nasm -felf64 %s -o %s", asm_name, obj_name);
@@ -78,6 +85,7 @@ int main(int argc, char** argv) {
   system(cmd2);
   remove(asm_name);
   remove(obj_name);
+#endif
 
   lexer_destroy(lexer);
 

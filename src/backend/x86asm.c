@@ -209,10 +209,14 @@ int x86_idx_arr(cg_t* cg, int reg, char* name, bool assign) {
   return res;
 }
 
-int x86_fn_call(cg_t* cg, char* name, bool alloc) {
+int x86_fn_call(cg_t* cg, char* name, bool alloc, int align) {
   cg_obj_t* obj = (cg_obj_t*)cg_find_object(cg, name);
   fprintf(cg->out, "\tcall %s\n", name);
   if (x86_get_size(obj->type) == 0) return -1;
+  if (align > 0) {
+    fprintf(cg->out, "\tadd rsp, %d\n", align * 2);
+  }
+  x86_restore_used_regs(cg);
   int reg = cg_reg_alloc(cg);
   fprintf(cg->out, "\tmov %s, %s\n", x86_get_reg_by_type(obj->type, reg), x86_get_ax(obj->type));
   return reg;
@@ -393,6 +397,10 @@ void x86_setup_stack(cg_t* cg) {
   for (list_item_t* item = cg->current_func->objs->head->next; item != cg->current_func->objs->head;
     item = item->next) {
     object_t* obj = (object_t*)item->data;
+    if (obj->type->is_pointer) {
+      size += 8;
+      continue;
+    }
     if (obj->type->is_arr) {
       type_t* temp = obj->type;
       int final_size = temp->pointer->arr_size->value;
@@ -406,6 +414,7 @@ void x86_setup_stack(cg_t* cg) {
       continue;
     }
     if (obj->type->type->_struct) {
+      if (obj->type->is_pointer) size += 8;
       size += obj->type->type->size;
     } else {
       size += x86_get_size(obj->type);
