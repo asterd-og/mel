@@ -109,21 +109,14 @@ void expr_or_arr_view(node_t* node) {
 }
 
 void type_view(type_t* ty) {
+  if (ty->is_pointer) {
+    printf("%*s", ty->ptr_cnt, "*");
+  }
   if (ty->_signed != ty->type->_signed) {
     printf("%s ", (ty->_signed ? "signed" : "unsigned"));
   }
   printf("%s", ty->type->name);
-  if (ty->is_pointer) {
-    int stcnt = 0;
-    type_t* temp = ty;
-    while (temp->is_pointer) {
-      stcnt++;
-      temp = temp->pointer;
-    }
-    for (int i = 0; i < stcnt; i++) {
-      printf("*");
-    }
-  } else if (ty->is_arr) {
+  if (ty->is_arr) {
     type_t* temp = ty;
     while (temp->is_arr) {
       temp = temp->pointer;
@@ -157,6 +150,10 @@ void fn_decl_view(node_t* node) {
   for (list_item_t* param = fun->params->head->next; param != fun->params->head;
     param = param->next) {
     node_t* node = (node_t*)param->data;
+    if (node->type == NODE_3DOT){
+      printf("...");
+      break;
+    }
     var_decl_view(node, true);
     if (param->next != fun->params->head) {
       printf(", ");

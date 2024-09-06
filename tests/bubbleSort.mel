@@ -1,11 +1,11 @@
-fn print(var fmt: char*): void;
+fn print(var fmt: *char): void;
 fn printInt(var num: u64): void;
 fn printChar(var num: char): void;
-fn allocMem(var size: u64): u64*;
-fn freeMem(var ptr: u64*): void;
+fn allocMem(var size: u64): *u64;
+fn freeMem(var ptr: *u64): void;
 fn getRand(var max: u64): u64;
 
-fn bubbleSort(var arr: u64*, var n: u64): void {
+fn bubbleSort(var arr: *u64, var n: u64): void {
   for (var i: u64 = 0; i < n - 1; i += 1) {
     for (var j: u64 = 0; j < n - i - 1; j += 1) {
       if (arr[j] > arr[j + 1]) {
@@ -17,7 +17,7 @@ fn bubbleSort(var arr: u64*, var n: u64): void {
   }
 }
 
-fn printArr(var arr: u64*, var n: u64): void {
+fn printArr(var arr: *u64, var n: u64): void {
   for (var i: u64 = 0; i < n; i += 1) {
     printInt(arr[i]);
     print(" ");

@@ -9,7 +9,9 @@
 #include "frontend/lexer.h"
 #include "frontend/parser.h"
 #include "frontend/ast_viewer.h"
-#include "backend/cg.h"
+#include "backend/backend.h"
+
+#define CC "cc"
 
 char* open_file(char* filename) {
   FILE* fp = fopen(filename, "rb");
@@ -70,17 +72,16 @@ int main(int argc, char** argv) {
   char* asm_name = (char*)malloc(11); // 6 random digits (dot) asm
   char* obj_name = (char*)malloc(11); // 6 random digits (dot) asm
   uint32_t num = rand() % 999999;
-  sprintf(asm_name, "%06d.asm", num);
+  sprintf(asm_name, "%06d.c", num);
   sprintf(obj_name, "%06d.o", num);
 #endif
-  cg_t* cg = cg_create(parser->ast, asm_name);
-  cg_gen(cg);
+  backend_gen(parser->ast, obj_name);
 
 #ifndef DEBUG
   char* cmd = (char*)malloc(50);
   char* cmd2 = (char*)malloc(50);
-  sprintf(cmd, "nasm -felf64 %s -o %s", asm_name, obj_name);
-  sprintf(cmd2, "gcc %s lib/mlib.a -o %s", obj_name, argv[2]);
+  sprintf(cmd, "%s %s -o %s", CC, asm_name, obj_name);
+  sprintf(cmd2, "%s %s lib/mlib.a -o %s", CC, obj_name, argv[2]);
   system(cmd);
   system(cmd2);
   remove(asm_name);

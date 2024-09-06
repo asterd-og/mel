@@ -18,10 +18,11 @@ node_t* parse_arr_idx(parser_t* parser) {
   while (parser_peek(parser)->type == TOK_LSQBR) {
     count++;
     parser_eat(parser, TOK_LSQBR);
-    if (count > obj->type->dimensions) {
+    // FIXME: What if its a double pointer ?! or pointer to array ?!?!?!?
+    /*if (count > obj->type->dimensions) {
       parser_error(parser, "Trying to access inexistent dimension.");
       return NULL;
-    }
+    }*/
     parser_consume(parser);
     node_t* expr = parse_expression(parser, NULL);
     parser_expect(parser, TOK_RSQBR);
@@ -43,7 +44,7 @@ node_t* parse_array(parser_t* parser, type_t* type) {
   list_t* list = list_create();
   while (parser->token->type != TOK_RSQBR) {
     if (type->pointer && type->is_arr) {
-      if (list->size + 1 > type->pointer->arr_size->value) {
+      if (type->pointer->arr_size->type == NODE_INT && list->size + 1 > type->pointer->arr_size->value) {
         parser_error(parser, "Too many items in array.");
         return NULL;
       }
@@ -157,7 +158,7 @@ node_t* parse_lvalue(parser_t* parser) {
   }
   object_t* obj = parser_find_obj(parser, parse_str(name));
   if (obj->type->is_arr || obj->type->is_pointer) {
-    // TODO: Check for -> if its pointer
+    // TODO: Check for -> if its pointer (maybe)
     if (parser_peek(parser)->type != TOK_LSQBR) {
       if (obj->type->is_pointer) goto els;
       parser_error(parser, "lvalue is an array (needs to be indexed).");
@@ -168,9 +169,6 @@ node_t* parse_lvalue(parser_t* parser) {
     return node;
   } else {
 els:
-    /*node = NEW_DATA(node_t);
-    node->type = NODE_ID;
-    node->tok = name;*/
     node = parse_id(parser);
     return node;
   }
@@ -233,6 +231,10 @@ list_t* parser_param_list(parser_t* parser, bool* undef_params) {
       *undef_params = true;
       parser_consume(parser);
       parser_eat(parser, TOK_RPAR);
+      node_t* node = NEW_DATA(node_t);
+      node->type = NODE_3DOT;
+      node->tok = parser->token;
+      list_add(params, node);
       return params;
       break;
     }
@@ -306,9 +308,14 @@ list_t* parse_expr_list(parser_t* parser, list_t* expected_params, bool undef_pa
       return NULL;
     }
     if (iterator != expected_params->head) {
-      var_t* var = (var_t*)((node_t*)iterator->data)->data;
-      type = var->type;
-      iterator = iterator->next;
+      if (((node_t*)iterator->data)->type == NODE_3DOT) {
+        iterator = iterator->next;
+        type = NULL;
+      } else {
+        var_t* var = (var_t*)((node_t*)iterator->data)->data;
+        type = var->type;
+        iterator = iterator->next;
+      }
     } else {
       type = NULL;
     }

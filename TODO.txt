@@ -1,6 +1,7 @@
 TODO:
 
 struct.member[idx]
+pointers to arrays.
 
 Error the user if array dimension difference
 Check if dereferencing pointer is the same type
@@ -22,10 +23,12 @@ Assertions
 ========================
 Code Gen TODO:
 
-Structure initialisation (maybe)
-Fix strings in structures
+assignments
+struct.member[idx]
 
-Fix stack strings assignment problem (str[n] = ...)
+for, if and while statements
+Structure initialisation (maybe)
+
 
 ========================
 Lib TODO:

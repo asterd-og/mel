@@ -46,7 +46,7 @@ enum {
   NODE_NOTEQ, NODE_DBAND, NODE_DBOR,
 
   NODE_ARR_IDX, NODE_AT, NODE_REF,
-  NODE_STRUCT_ACC,
+  NODE_STRUCT_ACC, NODE_3DOT
 };
 
 typedef struct node_t {
@@ -72,6 +72,7 @@ typedef struct {
 
 typedef struct type_t {
   bool is_pointer;
+  int ptr_cnt; // single ptr, double ptr, etc...
   bool is_arr;
   bool _signed;
   int dimensions; // Array dimensions

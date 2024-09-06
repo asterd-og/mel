@@ -182,6 +182,18 @@ type_t* parser_get_type(parser_t* parser) {
   token_t* type_tok = first_tok;
   basetype_t* bt;
   bool _signed = false;
+  bool is_ptr = false;
+  int ptr_cnt = 0;
+  if (first_tok->type == TOK_STAR) {
+    is_ptr = true;
+    // Handle multiple * chars before type (***int) or just once (*int)
+    while (parser->token->type == TOK_STAR) {
+      ptr_cnt++;
+      parser_consume(parser);
+    }
+    first_tok = parser->token;
+    type_tok = first_tok;
+  }
   switch (first_tok->type) {
     case TOK_ID: {
       bt = type_checker_check(parser->tychk, first_tok);
@@ -209,29 +221,16 @@ type_t* parser_get_type(parser_t* parser) {
     parser_error(parser, "Unknown type '%.*s'.", type_tok->text_len, type_tok->text);
     return NULL;
   }
+  if (bt->size == 0 && is_ptr) {
+    parser_error(parser, "Can't make pointer of void. Try u64.\n");
+    return NULL;
+  }
   type_t* type = NEW_DATA(type_t);
   type->type = bt;
   type->_signed = _signed;
   type->pointer = NULL;
   type->is_pointer = false; type->is_arr = false;
-  if (parser_peek(parser)->type == TOK_STAR) {
-    type_t* temp;
-    type_t* point_to = type;
-    int count = 0;
-    // Handle multiple * chars after type (int***) or just once (int*)
-    do {
-      count++;
-      temp = NEW_DATA(type_t);
-      temp->is_pointer = true; temp->is_arr = false;
-      temp->type = bt;
-      temp->pointer = point_to;
-      temp->_signed = _signed;
-      point_to = temp;
-      parser_consume(parser);
-    } while (parser_peek(parser)->type == TOK_STAR);
-    temp->dimensions = count;
-    return temp;
-  } else if (parser_peek(parser)->type == TOK_LSQBR) {
+  if (parser_peek(parser)->type == TOK_LSQBR) {
     if (type->type->size == 0) {
       parser_error(parser, "You can't create an array of type void.\n");
       return NULL;
@@ -243,12 +242,13 @@ type_t* parser_get_type(parser_t* parser) {
       count++;
       point_to->is_arr = true;
       parser_eat(parser, TOK_LSQBR);
-      token_t* num = parser_eat(parser, TOK_NUM);
-      node_t* expr = NEW_DATA(node_t);
-      expr->tok = num;
-      expr->type = NODE_INT;
-      expr->value = parse_num(num);
       parser_consume(parser);
+      node_t* expr = NEW_DATA(node_t);
+      expr = parse_expr(parser, NULL);
+      if (expr->type != NODE_INT) {
+        parser_error(parser, "Expression has ID.");
+        return NULL;
+      }
       if (parser->token->type != TOK_RSQBR) {
         parser_error(parser, "Unexpected token. Expected ']' but got '%.*s'.", parser->token->text_len, parser->token->text);
         return NULL;
@@ -262,9 +262,10 @@ type_t* parser_get_type(parser_t* parser) {
       point_to->pointer = temp;
       point_to = temp;
     } while (parser_peek(parser)->type == TOK_LSQBR);
-    type->dimensions = count;
+    type->dimensions = count; type->is_pointer = is_ptr; type->ptr_cnt = ptr_cnt;
     return type;
   }
+  type->is_pointer = is_ptr; type->ptr_cnt = ptr_cnt;
   return type;
 }
 

@@ -12,6 +12,14 @@ node_t* parse_add_expr(parser_t* parser, type_t* type) {
         parser_consume(parser);
         rhs = parse_term(parser, type);
         temp = NEW_DATA(node_t);
+        if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
+          temp->type = NODE_INT;
+          temp->value = lhs->value + rhs->value;
+          temp->tok = op_tok;
+          free(lhs); free(rhs);
+          lhs = temp;
+          break;
+        }
         temp->type = NODE_ADD;
         temp->lhs = lhs; temp->rhs = rhs;
         temp->tok = op_tok;
@@ -21,6 +29,14 @@ node_t* parse_add_expr(parser_t* parser, type_t* type) {
         parser_consume(parser);
         rhs = parse_term(parser, type);
         temp = NEW_DATA(node_t);
+        if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
+          temp->type = NODE_INT;
+          temp->value = lhs->value - rhs->value;
+          temp->tok = op_tok;
+          free(lhs); free(rhs);
+          lhs = temp;
+          break;
+        }
         temp->type = NODE_SUB;
         temp->lhs = lhs; temp->rhs = rhs;
         temp->tok = op_tok;
@@ -48,6 +64,14 @@ node_t* parse_shift_expr(parser_t* parser, type_t* type) {
         parser_consume(parser);
         rhs = parse_add_expr(parser, type);
         temp = NEW_DATA(node_t);
+        if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
+          temp->type = NODE_INT;
+          temp->value = lhs->value << rhs->value;
+          temp->tok = op_tok;
+          free(lhs); free(rhs);
+          lhs = temp;
+          break;
+        }
         temp->type = NODE_SHL;
         temp->lhs = lhs;
         temp->rhs = rhs;
@@ -60,6 +84,14 @@ node_t* parse_shift_expr(parser_t* parser, type_t* type) {
         parser_consume(parser);
         rhs = parse_add_expr(parser, type);
         temp = NEW_DATA(node_t);
+        if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
+          temp->type = NODE_INT;
+          temp->value = lhs->value >> rhs->value;
+          temp->tok = op_tok;
+          free(lhs); free(rhs);
+          lhs = temp;
+          break;
+        }
         temp->type = NODE_SHR;
         temp->lhs = lhs;
         temp->rhs = rhs;
@@ -86,6 +118,14 @@ node_t* parse_bitwise_expr(parser_t* parser, type_t* type) {
         parser_consume(parser);
         rhs = parse_shift_expr(parser, type);
         temp = NEW_DATA(node_t);
+        if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
+          temp->type = NODE_INT;
+          temp->value = lhs->value | rhs->value;
+          temp->tok = op_tok;
+          free(lhs); free(rhs);
+          lhs = temp;
+          break;
+        }
         temp->type = NODE_OR;
         temp->lhs = lhs;
         temp->rhs = rhs;
@@ -96,6 +136,14 @@ node_t* parse_bitwise_expr(parser_t* parser, type_t* type) {
         parser_consume(parser);
         rhs = parse_shift_expr(parser, type);
         temp = NEW_DATA(node_t);
+        if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
+          temp->type = NODE_INT;
+          temp->value = lhs->value ^ rhs->value;
+          temp->tok = op_tok;
+          free(lhs); free(rhs);
+          lhs = temp;
+          break;
+        }
         temp->type = NODE_XOR;
         temp->lhs = lhs;
         temp->rhs = rhs;
@@ -106,6 +154,14 @@ node_t* parse_bitwise_expr(parser_t* parser, type_t* type) {
         parser_consume(parser);
         rhs = parse_shift_expr(parser, type);
         temp = NEW_DATA(node_t);
+        if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
+          temp->type = NODE_INT;
+          temp->value = lhs->value & rhs->value;
+          temp->tok = op_tok;
+          free(lhs); free(rhs);
+          lhs = temp;
+          break;
+        }
         temp->type = NODE_AND;
         temp->lhs = lhs;
         temp->rhs = rhs;
@@ -132,6 +188,14 @@ node_t* parse_term(parser_t* parser, type_t* type) {
         parser_consume(parser);
         rhs = parse_factor(parser, type);
         temp = NEW_DATA(node_t);
+        if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
+          temp->type = NODE_INT;
+          temp->value = lhs->value * rhs->value;
+          temp->tok = op_tok;
+          free(lhs); free(rhs);
+          lhs = temp;
+          break;
+        }
         temp->type = NODE_MUL;
         temp->lhs = lhs;
         temp->rhs = rhs;
@@ -142,6 +206,14 @@ node_t* parse_term(parser_t* parser, type_t* type) {
         parser_consume(parser);
         rhs = parse_factor(parser, type);
         temp = NEW_DATA(node_t);
+        if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
+          temp->type = NODE_INT;
+          temp->value = lhs->value / rhs->value;
+          temp->tok = op_tok;
+          free(lhs); free(rhs);
+          lhs = temp;
+          break;
+        }
         temp->type = NODE_DIV;
         temp->lhs = lhs;
         temp->rhs = rhs;
@@ -152,6 +224,14 @@ node_t* parse_term(parser_t* parser, type_t* type) {
         parser_consume(parser);
         rhs = parse_factor(parser, type);
         temp = NEW_DATA(node_t);
+        if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
+          temp->type = NODE_INT;
+          temp->value = lhs->value % rhs->value;
+          temp->tok = op_tok;
+          free(lhs); free(rhs);
+          lhs = temp;
+          break;
+        }
         temp->type = NODE_MOD;
         temp->lhs = lhs;
         temp->rhs = rhs;
@@ -176,7 +256,7 @@ node_t* parse_factor(parser_t* parser, type_t* type) {
       if (type == NULL) {
         type = obj->type;
       }
-      if (obj->type->type->size == 0 && !obj->type->is_pointer) {
+      if (obj->type->type->size == 0) {
         parser_error(parser, "Function returns void.");
         return NULL;
       }
