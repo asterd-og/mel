@@ -6,28 +6,34 @@ fn freeMem(var ptr: *u64): void;
 fn getRand(var max: u64): u64;
 fn printFmt(var fmt: *char, ...): u64;
 fn getInput(var buf: *char, var size: int): *char;
+fn printBin(var num: u64, var bits: int): void;
 
-struct position {
-  var x: u64;
-  var y: u64;
+fn bubbleSort(var arr: *u64, var n: u64): void {
+  for (var i: u64 = 0; i < n - 1; i += 1) {
+    for (var j: u64 = 0; j < n - i - 1; j += 1) {
+      if (arr[j] > arr[j + 1]) {
+        var temp: u64 = arr[j];
+        arr[j] = arr[j + 1];
+        arr[j + 1] = temp;
+      }
+    }
+  }
 }
 
-struct box {
-  var width: u64;
-  var height: u64;
-  var pos: position;
-}
-
-fn test(var arr: *u64): void {
-  printFmt("%ld\n", arr[0]);
-  printFmt("%ld\n", arr[1]);
-  printFmt("%ld\n", arr[2]);
-  printFmt("%ld\n", arr[3]);
-  printFmt("%ld\n", arr[4]);
+fn printArr(var arr: *u64, var n: u64): void {
+  for (var i: u64 = 0; i < n; i += 1) {
+    printInt(arr[i]);
+    print(" ");
+  }
+  print("\n");
 }
 
 fn main(): int {
-  var arr: u64[5] = [1, 2, 3, 4, 5];
-  test(arr);
+  var arr: u64[5] = [9, 365, 81, 634, 623];
+  print("Unordered array: ");
+  printArr(arr, 5);
+  bubbleSort(arr, 5);
+  print("Ordered array: ");
+  printArr(arr, 5);
   ret 0;
 }

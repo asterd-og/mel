@@ -17,15 +17,19 @@ IRBuilder<> builder(context);
 
 Function* current_fn = nullptr;
 bool fn_ret = false;
-bool inside_scope = false;
+int inside_scope = 0;
+type_t* current_ty; // parser ty, handles signess
+BasicBlock* current_block;
 std::map<std::string, Function*> fn_map;
 std::map<std::string, Value*> var_map;
+std::map<std::string, type_t*> var_types;
 std::map<std::string, Type*> type_map; // structs, etc...
 
 void backend_gen_stmt(node_t* node);
 Value* backend_gen_fn_call(node_t* node);
 Type* backend_get_llvm_type(type_t* ty);
 Value* backend_gen_expr(Type* ty, node_t* node);
+std::tuple<Type*,Value*> backend_gen_struct_acc(node_t* node);
 
 Type* backend_gen_struct(type_t* ty) {
   std::vector<Type *> fields;
@@ -131,32 +135,21 @@ Value* backend_load_str(Type* ty, char* str, int len) {
 Type* backend_get_var_type(Value* var) {
   if (isa<AllocaInst>(var)) {
     return ((AllocaInst*)var)->getAllocatedType();
+  } else if (isa<GlobalVariable>(var)) {
+    return ((Type*)((GlobalVariable*)var)->getType())->getPointerElementType();
   } else {
-    return ((Argument*)var)->getType();
+    return var->getType();
   }
 }
 
-Value* backend_load_id(Type* ty, char* name) {
-  Value* var = var_map.find(std::string(name))->second;
-  if (ty == nullptr) {
-    ty = backend_get_var_type(var);
-  }
-  if (backend_get_var_type(var)->isArrayTy()) {
-    var = builder.CreateGEP(backend_get_var_type(var), var, { builder.getInt64(0), builder.getInt64(0) });
-  } else if (isa<AllocaInst>(var)) {
-    var = builder.CreateLoad(ty, var);
-  }
-  return var;
-}
-
-Value* backend_arr_idx(Type* ty, node_t* node, Value* var, bool store, Value* store_val) {
+std::tuple<Type*,Value*> backend_arr_gep(Type* ty, node_t* node, Value* var) {
   Value* alloca = var;
   list_t* expr_list = (list_t*)node->data;
   Value* idx;
-  Type* arr_type = backend_get_var_type(alloca);
+  Type* arr_type = ty;
   Value* pointer = nullptr;
   bool is_pointer = false;
-  if (arr_type->isPointerTy()) {
+  if (ty->isPointerTy()) {
     is_pointer = true;
     pointer = builder.CreateLoad(arr_type, alloca);
     arr_type = arr_type->getPointerElementType();
@@ -179,65 +172,169 @@ Value* backend_arr_idx(Type* ty, node_t* node, Value* var, bool store, Value* st
       }
     }
   }
+  return {arr_type, element_ptr};
+}
+
+Value* backend_arr_idx(Type* ty, node_t* node, Value* var, bool store, Value* store_val) {
+  auto gep = backend_arr_gep(backend_get_var_type(var), node, var);
+  Value* element_ptr = std::get<1>(gep);
   Value* val;
   if (!store) {
-    val = builder.CreateLoad(arr_type, element_ptr);
+    val = builder.CreateLoad(std::get<0>(gep), element_ptr);
   } else {
     val = builder.CreateStore(store_val, element_ptr);
   }
   return val;
 }
 
-Value* backend_gen_expr(Type* ty, node_t* node) {
+Value* backend_gen_aop(int node_type, bool _signed, Value* lhs, Value* expr) {
+  Value* ret;
+  switch (node_type) {
+    case NODE_ASADD:
+    case NODE_ADD:
+      ret = builder.CreateAdd(lhs, expr);
+      break;
+    case NODE_ASSUB:
+    case NODE_SUB:
+      ret = builder.CreateSub(lhs, expr);
+      break;
+    case NODE_ASMUL:
+    case NODE_MUL:
+      ret = builder.CreateMul(lhs, expr);
+      break;
+    case NODE_ASDIV:
+    case NODE_DIV:
+      if (_signed) {
+        ret = builder.CreateSDiv(lhs, expr);
+      } else {
+        ret = builder.CreateUDiv(lhs, expr);
+      }
+      break;
+    case NODE_ASMOD:
+    case NODE_MOD:
+      if (_signed) {
+        ret = builder.CreateSRem(lhs, expr);
+      } else {
+        ret = builder.CreateURem(lhs, expr);
+      }
+      break;
+    case NODE_ASSHL:
+    case NODE_SHL:
+      ret = builder.CreateShl(lhs, expr);
+      break;
+    case NODE_ASSHR:
+    case NODE_SHR:
+      if (_signed) {
+        ret = builder.CreateAShr(lhs, expr);
+      } else {
+        ret = builder.CreateLShr(lhs, expr);
+      }
+      break;
+    case NODE_ASAND:
+    case NODE_AND:
+      ret = builder.CreateAnd(lhs, expr);
+      break;
+    case NODE_ASOR:
+    case NODE_OR:
+      ret = builder.CreateOr(lhs, expr);
+      break;
+    case NODE_ASXOR:
+    case NODE_XOR:
+      ret = builder.CreateXor(lhs, expr);
+      break;
+    case NODE_NOT:
+      ret = builder.CreateXor(lhs, -1);
+      break;
+  }
+  return ret;
+}
+
+Value* backend_gen_dif(Value* val, Type* val_type, Type* expected_type, bool sign) {
+  if (val_type->isArrayTy() || val_type->isPointerTy() || expected_type == nullptr || val_type == expected_type) {
+    return val;
+  }
+  if (sign) {
+    return builder.CreateSExtOrTrunc(val, expected_type);
+  } else {
+    return builder.CreateZExtOrTrunc(val, expected_type);
+  }
+}
+
+std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
   Value *lhs, *rhs;
   Value* val;
-  if (node->lhs) lhs = backend_gen_expr(ty, node->lhs);
-  if (node->rhs) rhs = backend_gen_expr(ty, node->rhs);
+  if (node->lhs && node->type != NODE_STRUCT_ACC) {
+    auto expr = backend_gen_iexpr(ty, node->lhs);
+    lhs = std::get<1>(expr);
+    if (ty == nullptr) {
+      ty = std::get<0>(expr);
+    }
+  }
+  if (node->rhs) {
+    auto expr = backend_gen_iexpr(ty, node->rhs);
+    rhs = std::get<1>(expr);
+    if (ty == nullptr) {
+      ty = std::get<0>(expr);
+    }
+  }
   switch (node->type) {
-    case NODE_ADD:
-      val = builder.CreateAdd(lhs, rhs);
-      break;
-    case NODE_SUB:
-      val = builder.CreateSub(lhs, rhs);
-      break;
-    case NODE_MUL:
-      val = builder.CreateMul(lhs, rhs);
-      break;
-    case NODE_DIV:
-      val = builder.CreateUDiv(lhs, rhs);
-      break;
     case NODE_INT:
       if (ty == nullptr) ty = Type::getInt32Ty(context);
       val = backend_load_int(ty, node->value);
       break;
     case NODE_STR: {
       char* str = parse_str(node->tok);
-      if (ty == nullptr)
-        ty = PointerType::getInt8PtrTy(context);
+      ty = PointerType::getInt8PtrTy(context);
       val = backend_load_str(ty, str, node->tok->text_len + 1);
       free(str);
       break;
     }
     case NODE_ID: {
       char* str = parse_str(node->tok);
-      val = backend_load_id(ty, str);
+      Value* var = var_map.find(std::string(str))->second;
+      Type* first_ty = ty;
+      ty = backend_get_var_type(var);
+      if (current_ty == nullptr) {
+        current_ty = var_types[std::string(str)];
+      }
       free(str);
+      if (backend_get_var_type(var)->isArrayTy()) {
+        var = builder.CreateGEP(backend_get_var_type(var), var, { builder.getInt64(0), builder.getInt64(0) });
+      } else {
+        var = builder.CreateLoad(ty, var);
+      }
+      val = backend_gen_dif(var, ty, first_ty, current_ty->_signed);
       break;
     }
     case NODE_FN_CALL:
       val = backend_gen_fn_call(node);
-      if (ty == nullptr)
-        ty = val->getType();
+      ty = val->getType();
       break;
     case NODE_ARR_IDX: {
       char* str = parse_str(node->tok);
       Value* var = var_map.find(std::string(str))->second;
+      current_ty = var_types[std::string(str)];
       val = backend_arr_idx(ty, node, var, false, nullptr);
       free(str);
       break;
     }
+    case NODE_STRUCT_ACC: {
+      auto struct_acc = backend_gen_struct_acc(node);
+      val = std::get<1>(struct_acc);
+      Type* member_ty = std::get<0>(struct_acc);
+      val = builder.CreateLoad(member_ty, val);
+      ty = member_ty;
+      break;
+    }
+    default:
+      val = backend_gen_aop(node->type, (current_ty ? current_ty->_signed : false), lhs, rhs);
+      break;
   }
-  return val;
+  return {ty, val};
+}
+
+Value* backend_gen_expr(Type* ty, node_t* node) {
+  return std::get<1>(backend_gen_iexpr(ty, node));
 }
 
 void backend_gen_arr(Value* alloca, Type* arr_ty, node_t* node) {
@@ -280,6 +377,7 @@ void backend_gen_fn_def(node_t* node) {
   current_fn = fn;
   BasicBlock* entry = BasicBlock::Create(context, "entry", fn);
   builder.SetInsertPoint(entry);
+  current_block = entry;
   auto param_iterator = fn->arg_begin();
   for (list_item_t* param = fn_node->params->head->next; param != fn_node->params->head; param = param->next) {
     node_t* node = (node_t*)param->data;
@@ -287,12 +385,13 @@ void backend_gen_fn_def(node_t* node) {
     var_t* var = (var_t*)node->data;
     char* pname = parse_str(var->name);
     val->setName(pname);
-    if (var->type->is_pointer) {
-      AllocaInst* addr = builder.CreateAlloca(backend_get_llvm_type(var->type), nullptr, std::string(pname) + ".addr");
-      builder.CreateStore(val, addr);
-      val = addr;
-    }
+
+    AllocaInst* addr = builder.CreateAlloca(backend_get_llvm_type(var->type), nullptr, std::string(pname) + ".addr");
+    builder.CreateStore(val, addr);
+    val = addr;
+
     var_map[std::string(pname)] = val;
+    var_types[std::string(pname)] = var->type;
     free(pname);
   }
   for (list_item_t* item = fn_node->body->head->next; item != fn_node->body->head; item = item->next) {
@@ -305,16 +404,32 @@ void backend_gen_fn_def(node_t* node) {
       builder.CreateRet(ConstantInt::get(fn->getReturnType(), 0));
     }
   }
+  current_fn = nullptr;
 }
 
 void backend_gen_var_def(node_t* node) {
   var_t* var_node = (var_t*)node->data;
   Type* type = backend_get_llvm_type(var_node->type);
   char* name = parse_str(var_node->name);
-  AllocaInst* var = builder.CreateAlloca(type, nullptr, name);
+  Value* var;
+  if (current_fn != nullptr) {
+    var = builder.CreateAlloca(type, nullptr, name);
+  } else {
+    auto glob = (&module)->getOrInsertGlobal(name, type);
+    var = glob;
+    ((GlobalVariable*)var)->setDSOLocal(true);
+    ((GlobalVariable*)var)->setInitializer((ConstantInt*)backend_load_int(type, 0));
+  }
   var_map[std::string(name)] = var;
+  var_types[std::string(name)] = var_node->type;
+  current_ty = var_node->type;
   free(name);
   if (!var_node->initialised) return;
+  if (isa<GlobalVariable>(var)) {
+    // TODO: Work with strings.
+    ((GlobalVariable*)var)->setInitializer((ConstantInt*)backend_load_int(type, node->lhs->value));
+    return;
+  }
   if (var_node->type->is_arr) {
     if (var_node->initialised) {
       backend_gen_arr(var, type, node->lhs);
@@ -348,6 +463,84 @@ Value* backend_gen_fn_call(node_t* node) {
   return result;
 }
 
+std::tuple<var_t*, int> backend_get_struct_member_idx(type_t* struc, token_t* member) {
+  int i = 0;
+  var_t* var;
+  for (list_item_t* item = struc->type->members->head->next; item != struc->type->members->head; item = item->next) {
+    var = (var_t*)item->data;
+    if (!strncmp(var->name->text, member->text, member->text_len)) {
+      current_ty = var->type;
+      break;
+    }
+    i++;
+  }
+  return {var, i};
+}
+
+std::tuple<Type*,Value*> backend_gen_struct_acc(node_t* node) {
+  char* name = parse_str(node->tok);
+  Value* val = var_map[std::string(name)];
+  current_ty = var_types[std::string(name)];
+  free(name);
+  node_t* temp = node;
+  Type* ty = backend_get_var_type(val);
+  while (temp->lhs) {
+    temp = temp->lhs;
+    auto member = backend_get_struct_member_idx(current_ty, temp->tok);
+    int access = std::get<1>(member);
+    val = builder.CreateGEP(ty, val, { builder.getInt32(0), builder.getInt32(access) });
+    current_ty = std::get<0>(member)->type;
+    ty = backend_get_llvm_type(std::get<0>(member)->type);
+    if (temp->type == NODE_ARR_IDX) {
+      auto gep = backend_arr_gep(ty, temp, val);
+      val = std::get<1>(gep);
+      ty = std::get<0>(gep);
+    }
+  }
+  return {ty, val};
+}
+
+std::tuple<Type*,Value*> backend_gen_lvalue(node_t* lvalue) {
+  switch (lvalue->type) {
+    case NODE_ID: {
+      char* pname = parse_str(lvalue->tok);
+      Value* val = var_map[std::string(pname)];
+      current_ty = var_types[std::string(pname)];
+      free(pname);
+      return {backend_get_llvm_type(current_ty), val};
+      break;
+    }
+    case NODE_ARR_IDX: {
+      char* str = parse_str(lvalue->tok);
+      Value* var = var_map.find(std::string(str))->second;
+      current_ty = var_types[std::string(str)];
+      auto val = backend_arr_gep(backend_get_var_type(var), lvalue, var);
+      free(str);
+      return val;
+      break;
+    }
+    case NODE_STRUCT_ACC:
+      return backend_gen_struct_acc(lvalue);
+      break;
+  }
+  return {};
+}
+
+void backend_gen_assignment(node_t* node) {
+  auto ty_lval = backend_gen_lvalue(node->lhs);
+  Value* lvalue = std::get<1>(ty_lval);
+  Value* expr = backend_gen_expr(std::get<0>(ty_lval), node->rhs);
+  Value* store = expr;
+
+  if (node->type != NODE_ASSIGN) {
+    Value* lhs;
+    lhs = builder.CreateLoad(backend_get_var_type(lvalue), lvalue);
+    store = backend_gen_aop(node->type, (current_ty ? current_ty->_signed : false), lhs, expr);
+  }
+
+  builder.CreateStore(store, lvalue);
+}
+
 void backend_gen_ret(node_t* node) {
   if (current_fn->getReturnType() == Type::getVoidTy(context)) {
     builder.CreateRetVoid();
@@ -357,8 +550,184 @@ void backend_gen_ret(node_t* node) {
   if (!inside_scope) fn_ret = true;
 }
 
+Value* backend_gen_cond(node_t* cond) {
+  if (cond->type >= NODE_EQEQ && cond->type <= NODE_DBOR && cond->type != NODE_NOT) {
+    auto first_expr = backend_gen_iexpr(nullptr, cond->lhs);
+    type_t* ty = current_ty;
+    auto second_expr = backend_gen_iexpr(std::get<0>(first_expr), cond->rhs);
+    Value* lhs = std::get<1>(first_expr);
+    Value* rhs = std::get<1>(second_expr);
+    Value* cmp;
+    switch (cond->type) {
+      case NODE_EQEQ:
+        cmp = builder.CreateICmpEQ(lhs, rhs, "cmp");
+        break;
+      case NODE_GT:
+        if (current_ty->_signed) {
+          cmp = builder.CreateICmpSGT(lhs, rhs, "cmp");
+        } else {
+          cmp = builder.CreateICmpUGT(lhs, rhs, "cmp");
+        }
+        break;
+      case NODE_GTEQ:
+        if (current_ty->_signed) {
+          cmp = builder.CreateICmpSGE(lhs, rhs, "cmp");
+        } else {
+          cmp = builder.CreateICmpUGE(lhs, rhs, "cmp");
+        }
+        break;
+      case NODE_LT:
+        if (current_ty->_signed) {
+          cmp = builder.CreateICmpSLT(lhs, rhs, "cmp");
+        } else {
+          cmp = builder.CreateICmpULT(lhs, rhs, "cmp");
+        }
+        break;
+      case NODE_LTEQ:
+        if (current_ty->_signed) {
+          cmp = builder.CreateICmpSLE(lhs, rhs, "cmp");
+        } else {
+          cmp = builder.CreateICmpULE(lhs, rhs, "cmp");
+        }
+        break;
+      case NODE_NOTEQ:
+        cmp = builder.CreateICmpNE(lhs, rhs, "cmp");
+        break;
+    }
+    return cmp;
+  } else {
+    outs()<<"To be implemented.\n";
+    return nullptr;
+  }
+}
+
+void backend_gen_for_loop(node_t* node) {
+  for_stmt_t* stmt = (for_stmt_t*)node->data;
+
+  if (stmt->primary_stmt->type == NODE_VAR_DEF)
+    backend_gen_var_def(stmt->primary_stmt);
+  else 
+    backend_gen_assignment(stmt->primary_stmt);
+
+  BasicBlock* entry_block = current_block;
+
+  BasicBlock* cond = BasicBlock::Create(context, "for.cond", current_fn);
+  builder.SetInsertPoint(cond);
+  current_block = cond;
+  Value* cmp = backend_gen_cond(node->lhs);
+
+  BasicBlock* step = BasicBlock::Create(context, "for.step", current_fn);
+  builder.SetInsertPoint(step);
+  current_block = step;
+  backend_gen_assignment(stmt->step);
+  builder.CreateBr(cond);
+
+  inside_scope++;
+  BasicBlock* body = BasicBlock::Create(context, "for.body", current_fn);
+  builder.SetInsertPoint(body);
+  current_block = body;
+  backend_gen_stmt(stmt->body);
+  builder.CreateBr(step);
+
+  inside_scope--;
+
+  BasicBlock* end = BasicBlock::Create(context, "for.end", current_fn);
+  current_block = end;
+
+  builder.SetInsertPoint(entry_block);
+  builder.CreateBr(cond);
+
+  builder.SetInsertPoint(cond);
+  builder.CreateCondBr(cmp, body, end);
+
+  builder.SetInsertPoint(end);
+}
+
+void backend_gen_if_stmt(node_t* node) {
+  if_stmt_t* stmt = (if_stmt_t*)node->data;
+  BasicBlock* entry_block = current_block;
+  Value* cmp = backend_gen_cond(node->lhs);
+
+  BasicBlock* true_body = BasicBlock::Create(context, "if.then", current_fn);
+  builder.SetInsertPoint(true_body);
+  current_block = true_body;
+  inside_scope++;
+  backend_gen_stmt(stmt->true_stmt);
+  BasicBlock* else_body;
+  BasicBlock* end_else_body;
+
+  if (stmt->false_stmt) {
+    inside_scope++;
+    else_body = BasicBlock::Create(context, "if.else", current_fn);
+    builder.SetInsertPoint(else_body);
+    current_block = else_body;
+    backend_gen_stmt(stmt->false_stmt);
+    end_else_body = current_block;
+    inside_scope--;
+  }
+
+  BasicBlock* end_body = BasicBlock::Create(context, "if.end", current_fn);
+  builder.SetInsertPoint(true_body);
+  builder.CreateBr(end_body);
+  inside_scope--;
+
+  if (stmt->false_stmt) {
+    if (end_else_body != else_body) {
+      builder.SetInsertPoint(end_else_body);
+      builder.CreateBr(end_body);
+    } else {
+      builder.SetInsertPoint(else_body);
+      builder.CreateBr(end_body);
+    }
+  }
+
+  builder.SetInsertPoint(entry_block);
+  builder.CreateCondBr(cmp, true_body, (stmt->false_stmt ? else_body : end_body));
+
+  builder.SetInsertPoint(end_body);
+  current_block = end_body;
+}
+
+void backend_gen_while_loop(node_t* node) {
+  while_stmt_t* stmt = (while_stmt_t*)node->data;
+
+  BasicBlock* entry_block = current_block;
+
+  BasicBlock* cond = BasicBlock::Create(context, "while.cond", current_fn);
+  builder.SetInsertPoint(cond);
+  current_block = cond;
+  Value* cmp = backend_gen_cond(node->lhs);
+
+  inside_scope++;
+  BasicBlock* body = BasicBlock::Create(context, "while.body", current_fn);
+  builder.SetInsertPoint(body);
+  current_block = body;
+  backend_gen_stmt(stmt->body);
+  builder.CreateBr(cond);
+  inside_scope--;
+
+  BasicBlock* end = BasicBlock::Create(context, "while.end", current_fn);
+  current_block = end;
+
+  builder.SetInsertPoint(entry_block);
+  builder.CreateBr(cond);
+
+  builder.SetInsertPoint(cond);
+  builder.CreateCondBr(cmp, body, end);
+
+  builder.SetInsertPoint(end);
+}
+
 void backend_gen_stmt(node_t* node) {
   switch (node->type) {
+    case NODE_COMPOUND: {
+      list_t* ast = (list_t*)node->data;
+      for (list_item_t* item = ast->head->next; item != ast->head; item = item->next) {
+        node_t* node = (node_t*)item->data;
+        backend_gen_stmt(node);
+      }
+      break;
+    }
     case NODE_FN_DEF:
       backend_gen_fn_def(node);
       break;
@@ -367,6 +736,18 @@ void backend_gen_stmt(node_t* node) {
       break;
     case NODE_FN_CALL:
       backend_gen_fn_call(node);
+      break;
+    case NODE_ASSIGN...NODE_ASXOR:
+      backend_gen_assignment(node);
+      break;
+    case NODE_FOR:
+      backend_gen_for_loop(node);
+      break;
+    case NODE_IF:
+      backend_gen_if_stmt(node);
+      break;
+    case NODE_WHILE:
+      backend_gen_while_loop(node);
       break;
     case NODE_RET:
       backend_gen_ret(node);

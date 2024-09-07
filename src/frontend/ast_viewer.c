@@ -56,7 +56,17 @@ void term_view(node_t* node) {
       while (temp->lhs) {
         printf(".");
         temp = temp->lhs;
-        printf("%.*s", temp->tok->text_len, temp->tok->text);
+        if (temp->type == NODE_STRUCT_ACC) {
+          printf("%.*s", temp->tok->text_len, temp->tok->text);
+        } else {
+          printf("%.*s", temp->tok->text_len, temp->tok->text);
+          list_t* expr_list = (list_t*)temp->data;
+          for (list_item_t* expr = expr_list->head->next; expr != expr_list->head; expr = expr->next) {
+            printf("[");
+            expr_view((node_t*)expr->data);
+            printf("]");
+          }
+        }
       }
       break;
     case NODE_FN_CALL:
@@ -248,13 +258,11 @@ void for_view(node_t* node) {
   for_stmt_t* stmt = (for_stmt_t*)node->data;
   printf("for (");
   if (stmt->primary_stmt->type == NODE_VAR_DEF) { var_decl_view(stmt->primary_stmt, false); }
-  else assign_view(stmt->primary_stmt);
+  else assign_view(stmt->primary_stmt); // Primary statement
   printf(" ");
-  cond_view(node->lhs);
-  if (stmt->custom_step) {
-    printf("; ");
-    assign_view(stmt->step);
-  }
+  cond_view(node->lhs); // condition
+  printf("; ");
+  assign_view(stmt->step); // step
   printf(") ");
   stmt_view(stmt->body, false);
 }

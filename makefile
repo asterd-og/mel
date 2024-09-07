@@ -31,7 +31,7 @@ clean:
 .PHONY: clean
 
 run:
-	./out/mel tests/helloworld.mel test
+	./out/mel tests/test.mel test
 
 comp:
 	llc -filetype=obj out.ll -o test.o -opaque-pointers

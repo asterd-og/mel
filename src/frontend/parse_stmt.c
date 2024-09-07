@@ -8,11 +8,12 @@
 
 node_t* parse_arr_idx(parser_t* parser) {
   token_t* name = parser->token;
-  object_t* obj = parser_find_obj(parser, parse_str(name));
+  // FIXME: v~~~~~ Fix this for arrays inside of structure type.
+  /*object_t* obj = parser_find_obj(parser, parse_str(name));
   if (!obj->type->is_arr && !obj->type->is_pointer) {
     parser_error(parser, "Invalid indexing of non-array object.");
     return NULL;
-  }
+  }*/
   list_t* idx_list = list_create();
   int count = 0;
   while (parser_peek(parser)->type == TOK_LSQBR) {
@@ -120,6 +121,7 @@ node_t* parse_struct_acc(parser_t* parser, type_t* type) {
   node->tok = parser->token;
   // Find object in members of type
   if (parser_consume(parser)->type == TOK_DOT) {
+acc:
     if (!type->type->_struct) {
       parser_error(parser, "Trying to access member of non-struct type.");
       return NULL;
@@ -140,6 +142,13 @@ node_t* parse_struct_acc(parser_t* parser, type_t* type) {
       return NULL;
     }
     node->lhs = parse_struct_acc(parser, ty);
+    return node;
+  } else if (parser->token->type == TOK_LSQBR) {
+    parser_rewind(parser);
+    node = parse_arr_idx(parser);
+    if (parser_consume(parser)->type == TOK_DOT) {
+      goto acc;
+    }
   }
   return node;
 }
@@ -193,6 +202,10 @@ node_t* parse_var_decl(parser_t* parser, bool param, bool struc_member) {
     parser_consume(parser);
     node_t* lhs = parse_expr(parser, type);
     node->lhs = lhs;
+    if (node->lhs->type != NODE_INT && node->lhs->type != NODE_STR && parser->scope->glob_scope) {
+      parser_error(parser, "Trying to initialise a global variable with non-constant expression.");
+      return NULL;
+    }
   }
   if (param) {
     if (next->type != TOK_COMMA && next->type != TOK_RPAR && next->type != TOK_EQ) {
@@ -330,6 +343,9 @@ list_t* parse_expr_list(parser_t* parser, list_t* expected_params, bool undef_pa
     parser_consume(parser);
   }
   if (expr_list->size < expected_params->size) {
+    if (((node_t*)iterator->data)->type == NODE_3DOT) {
+      return expr_list;
+    }
     parser_error(parser, "Not enough arguments to function call.");
     return NULL;
   }

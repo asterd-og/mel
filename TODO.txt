@@ -1,8 +1,5 @@
 TODO:
 
-struct.member[idx]
-pointers to arrays.
-
 Error the user if array dimension difference
 Check if dereferencing pointer is the same type
 
@@ -23,11 +20,9 @@ Assertions
 ========================
 Code Gen TODO:
 
-assignments
-struct.member[idx]
-
-for, if and while statements
 Structure initialisation (maybe)
+
+pointers to arrays.
 
 
 ========================

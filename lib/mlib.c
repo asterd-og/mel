@@ -22,3 +22,10 @@ int printFmt(char* fmt, ...) {
 char* getInput(char* buffer, int size) {
   return fgets(buffer, size, stdin);
 }
+
+void printBin(uint64_t value, int bits) {
+  for (int i = bits - 1; i >= 0; i--) {
+    printf("%d", ((value & (1<<i)) ? 1 : 0));
+  }
+  printf("\n");
+}
