@@ -8,32 +8,45 @@ fn printFmt(var fmt: *char, ...): u64;
 fn getInput(var buf: *char, var size: int): *char;
 fn printBin(var num: u64, var bits: int): void;
 
-fn bubbleSort(var arr: *u64, var n: u64): void {
-  for (var i: u64 = 0; i < n - 1; i += 1) {
-    for (var j: u64 = 0; j < n - i - 1; j += 1) {
-      if (arr[j] > arr[j + 1]) {
-        var temp: u64 = arr[j];
-        arr[j] = arr[j + 1];
-        arr[j + 1] = temp;
-      }
-    }
+struct string {
+  var data: *char;
+  var size: u64;
+}
+
+fn strLen(var data: *char): int {
+  var idx: int = 0;
+  while (data[idx] != 0) {
+    idx += 1;
+  }
+  ret idx;
+}
+
+fn strCpy(var dest: *char, var src: *char): void {
+  var idx: int = 0;
+  while (src[idx] != 0) {
+    dest[idx] = src[idx];
+    idx += 1;
   }
 }
 
-fn printArr(var arr: *u64, var n: u64): void {
-  for (var i: u64 = 0; i < n; i += 1) {
-    printInt(arr[i]);
-    print(" ");
+fn newString(var data: *char): *string {
+  var str: *string = allocMem(16);
+  var size: int = strLen(data);
+  str.data = allocMem(size);
+  strCpy(str.data, data);
+  str.size = size;
+  ret str;
+}
+
+fn printString(var str: *string): void {
+  for (var i: int = 0; i < str.size; i += 1) {
+    printFmt("%c", str.data[i]);
   }
-  print("\n");
+  printFmt("\n");
 }
 
 fn main(): int {
-  var arr: u64[5] = [9, 365, 81, 634, 623];
-  print("Unordered array: ");
-  printArr(arr, 5);
-  bubbleSort(arr, 5);
-  print("Ordered array: ");
-  printArr(arr, 5);
+  var str: *string = newString("Mel compiler has features....");
+  printString(str);
   ret 0;
 }

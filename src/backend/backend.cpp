@@ -142,6 +142,17 @@ Type* backend_get_var_type(Value* var) {
   }
 }
 
+Value* backend_gen_dif(Value* val, Type* val_type, Type* expected_type, bool sign) {
+  if (val_type->isArrayTy() || val_type->isPointerTy() || expected_type == nullptr || val_type == expected_type) {
+    return val;
+  }
+  if (sign) {
+    return builder.CreateSExtOrTrunc(val, expected_type);
+  } else {
+    return builder.CreateZExtOrTrunc(val, expected_type);
+  }
+}
+
 std::tuple<Type*,Value*> backend_arr_gep(Type* ty, node_t* node, Value* var) {
   Value* alloca = var;
   list_t* expr_list = (list_t*)node->data;
@@ -175,16 +186,18 @@ std::tuple<Type*,Value*> backend_arr_gep(Type* ty, node_t* node, Value* var) {
   return {arr_type, element_ptr};
 }
 
-Value* backend_arr_idx(Type* ty, node_t* node, Value* var, bool store, Value* store_val) {
+std::tuple<Type*,Value*> backend_arr_idx(Type* ty, node_t* node, Value* var, bool store, Value* store_val) {
   auto gep = backend_arr_gep(backend_get_var_type(var), node, var);
   Value* element_ptr = std::get<1>(gep);
   Value* val;
   if (!store) {
-    val = builder.CreateLoad(std::get<0>(gep), element_ptr);
+    if (ty == nullptr) ty = std::get<0>(gep);
+    val = backend_gen_dif(element_ptr, std::get<0>(gep), ty, (current_ty == nullptr ? false : current_ty->_signed));
+    val = builder.CreateLoad(ty, val);
   } else {
     val = builder.CreateStore(store_val, element_ptr);
   }
-  return val;
+  return {std::get<0>(gep), val};
 }
 
 Value* backend_gen_aop(int node_type, bool _signed, Value* lhs, Value* expr) {
@@ -249,17 +262,6 @@ Value* backend_gen_aop(int node_type, bool _signed, Value* lhs, Value* expr) {
   return ret;
 }
 
-Value* backend_gen_dif(Value* val, Type* val_type, Type* expected_type, bool sign) {
-  if (val_type->isArrayTy() || val_type->isPointerTy() || expected_type == nullptr || val_type == expected_type) {
-    return val;
-  }
-  if (sign) {
-    return builder.CreateSExtOrTrunc(val, expected_type);
-  } else {
-    return builder.CreateZExtOrTrunc(val, expected_type);
-  }
-}
-
 std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
   Value *lhs, *rhs;
   Value* val;
@@ -314,7 +316,9 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       char* str = parse_str(node->tok);
       Value* var = var_map.find(std::string(str))->second;
       current_ty = var_types[std::string(str)];
-      val = backend_arr_idx(ty, node, var, false, nullptr);
+      auto arr = backend_arr_idx(ty, node, var, false, nullptr);
+      val = std::get<1>(arr);
+      ty = std::get<0>(arr);
       free(str);
       break;
     }
@@ -323,6 +327,7 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       val = std::get<1>(struct_acc);
       Type* member_ty = std::get<0>(struct_acc);
       val = builder.CreateLoad(member_ty, val);
+      val = backend_gen_dif(val, member_ty, ty, (current_ty ? current_ty->_signed : false));
       ty = member_ty;
       break;
     }
@@ -484,6 +489,10 @@ std::tuple<Type*,Value*> backend_gen_struct_acc(node_t* node) {
   free(name);
   node_t* temp = node;
   Type* ty = backend_get_var_type(val);
+  if (ty->isPointerTy()) {
+    val = builder.CreateLoad(ty, val);
+    ty = ty->getPointerElementType();
+  }
   while (temp->lhs) {
     temp = temp->lhs;
     auto member = backend_get_struct_member_idx(current_ty, temp->tok);
