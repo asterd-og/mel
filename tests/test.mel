@@ -9,19 +9,5 @@ fn getInput(var buf: *char, var size: int): *char;
 fn printBin(var num: u64, var bits: int): void;
 
 fn main(): int {
-  for (var num: int = 0; num < 100; num += 1) {
-    if (num % 3 == 0) {
-      printFmt("fizz");
-    }
-    if (num % 5 == 0) {
-      printFmt("buzz");
-    }
-    if (num % 3 > 0) {
-      if (num % 5 > 0) {
-        printFmt("%d", num);
-      }
-    }
-    printFmt("\n");
-  }
   ret 0;
 }

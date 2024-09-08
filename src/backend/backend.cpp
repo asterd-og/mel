@@ -152,7 +152,7 @@ Type* backend_get_var_type(Value* var) {
 }
 
 Value* backend_gen_dif(Value* val, Type* val_type, Type* expected_type, bool sign) {
-  if (val_type->isArrayTy() || val_type->isPointerTy() || val_type->isStructTy() || expected_type == nullptr || val_type == expected_type) {
+  if (!val_type->isIntegerTy() || expected_type == nullptr || val_type == expected_type) {
     return val;
   }
   if (sign) {
@@ -201,8 +201,8 @@ std::tuple<Type*,Value*> backend_arr_idx(Type* ty, node_t* node, Value* var, boo
   Value* val;
   if (!store) {
     if (ty == nullptr) ty = std::get<0>(gep);
-    val = backend_gen_dif(element_ptr, std::get<0>(gep), ty, (current_ty == nullptr ? false : current_ty->_signed));
-    val = builder.CreateLoad(ty, val);
+    val = builder.CreateLoad(std::get<0>(gep), element_ptr);
+    val = backend_gen_dif(val, std::get<0>(gep), ty, (current_ty == nullptr ? false : current_ty->_signed));
   } else {
     val = builder.CreateStore(store_val, element_ptr);
   }
@@ -561,7 +561,7 @@ void backend_gen_assignment(node_t* node) {
 
   if (node->type != NODE_ASSIGN) {
     Value* lhs;
-    lhs = builder.CreateLoad(backend_get_var_type(lvalue), lvalue);
+    lhs = builder.CreateLoad(std::get<0>(ty_lval), lvalue);
     store = backend_gen_aop(node->type, (current_ty ? current_ty->_signed : false), lhs, expr);
   }
 

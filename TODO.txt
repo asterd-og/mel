@@ -2,6 +2,8 @@ TODO:
 
 Imports (probably gonna make a header file with just the declarations of objects/types)
 
+Float numbers
+
 multiple conditions (while (cond1 && cond2 && cond3 || cond4))
 
 Error the user if array dimension difference
