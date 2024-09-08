@@ -221,10 +221,13 @@ type_t* parser_get_type(parser_t* parser) {
     parser_error(parser, "Unknown type '%.*s'.", type_tok->text_len, type_tok->text);
     return NULL;
   }
-  if (bt->size == 0 && is_ptr) {
+  // FIXME:
+  // Probably just use opaque pointers, or u64s? anyways, cant uncomment this or else cant make pointers
+  // to structures inside themselves (linked list for example)
+  /*if (bt->size == 0 && is_ptr) {
     parser_error(parser, "Can't make pointer of void. Try u64.\n");
     return NULL;
-  }
+  }*/
   type_t* type = NEW_DATA(type_t);
   type->type = bt;
   type->_signed = _signed;

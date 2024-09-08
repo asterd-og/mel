@@ -535,6 +535,7 @@ node_t* parse_while(parser_t* parser) {
 void parse_struct_decl(parser_t* parser) {
   token_t* name = parser_eat(parser, TOK_ID);
   basetype_t* type = (basetype_t*)NEW_DATA(basetype_t);
+  type_checker_add(parser->tychk, name, type);
 
   type->_struct = true;
   type->members = list_create();
@@ -561,6 +562,4 @@ void parse_struct_decl(parser_t* parser) {
   }
   parser_consume(parser); // eat }
   type->size = size;
-
-  type_checker_add(parser->tychk, name, type);
 }

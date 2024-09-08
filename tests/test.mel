@@ -8,45 +8,48 @@ fn printFmt(var fmt: *char, ...): u64;
 fn getInput(var buf: *char, var size: int): *char;
 fn printBin(var num: u64, var bits: int): void;
 
-struct string {
-  var data: *char;
-  var size: u64;
+struct linkedItem {
+  var next: *linkedItem;
+  var prev: *linkedItem;
+  var data: u64;
 }
 
-fn strLen(var data: *char): int {
-  var idx: int = 0;
-  while (data[idx] != 0) {
-    idx += 1;
+struct linkedList {
+  var head: *linkedItem;
+  var items: u64;
+}
+
+fn llCreate(): *linkedList {
+  var list: *linkedList = allocMem(16); // u64 + ptr
+  list.items = 0;
+  list.head = allocMem(24); // u64 + ptr + ptr
+  list.head.prev = list.head;
+  list.head.next = list.head;
+  ret list;
+}
+
+fn llNewItem(var ll: *linkedList, var data: u64): void {
+  var item: *linkedItem = allocMem(24);
+  item.data = data;
+  item.next = ll.head;
+  item.prev = ll.head.prev;
+  ll.head.prev.next = item;
+  ll.head.prev = item;
+}
+
+fn llIterate(var ll: *linkedList): void {
+  for (var item: *linkedItem = ll.head.next; item != ll.head; item = item.next) {
+    printFmt("%ld\n", item.data);
   }
-  ret idx;
-}
-
-fn strCpy(var dest: *char, var src: *char): void {
-  var idx: int = 0;
-  while (src[idx] != 0) {
-    dest[idx] = src[idx];
-    idx += 1;
-  }
-}
-
-fn newString(var data: *char): *string {
-  var str: *string = allocMem(16);
-  var size: int = strLen(data);
-  str.data = allocMem(size);
-  strCpy(str.data, data);
-  str.size = size;
-  ret str;
-}
-
-fn printString(var str: *string): void {
-  for (var i: int = 0; i < str.size; i += 1) {
-    printFmt("%c", str.data[i]);
-  }
-  printFmt("\n");
 }
 
 fn main(): int {
-  var str: *string = newString("Mel compiler has features....");
-  printString(str);
+  var ll: *linkedList = llCreate();
+  llNewItem(ll, 6);
+  llNewItem(ll, 9);
+  llNewItem(ll, 4);
+  llNewItem(ll, 2);
+  llNewItem(ll, 0);
+  llIterate(ll);
   ret 0;
 }

@@ -31,13 +31,37 @@ Type* backend_get_llvm_type(type_t* ty);
 Value* backend_gen_expr(Type* ty, node_t* node);
 std::tuple<Type*,Value*> backend_gen_struct_acc(node_t* node);
 
+Type* backend_get_ptr_arr_mod(type_t* ty, Type* bt) {
+  if (ty->is_pointer) {
+    Type* temp_ty = bt;
+    for (int i = 0; i < ty->ptr_cnt; i++) {
+      temp_ty = temp_ty->getPointerTo();
+    }
+    bt = temp_ty;
+  }
+  if (ty->is_arr) {
+    type_t* temp = ty;
+    Type* temp_ty = bt;
+    while (temp->is_arr) {
+      temp = temp->pointer;
+      temp_ty = ArrayType::get(temp_ty, temp->arr_size->value);
+    }
+    bt = temp_ty;
+  }
+  return bt;
+}
+
 Type* backend_gen_struct(type_t* ty) {
   std::vector<Type *> fields;
+  auto* type = StructType::create(context, "struct." + std::string(ty->type->name));
   for (list_item_t* item = ty->type->members->head->next; item != ty->type->members->head; item = item->next) {
     var_t* var = (var_t*)item->data;
-    fields.push_back(backend_get_llvm_type(var->type));
+    if (var->type->type == ty->type) {
+      fields.push_back(backend_get_ptr_arr_mod(var->type, type));
+    } else {
+      fields.push_back(backend_get_llvm_type(var->type));
+    }
   }
-  auto* type = StructType::create(context, "struct." + std::string(ty->type->name));
   type->setBody(fields);
   type_map[ty->type->name] = type;
   return type;
@@ -71,22 +95,7 @@ Type* backend_get_llvm_type(type_t* ty) {
         break;
     }
   }
-  if (ty->is_pointer) {
-    Type* temp_ty = bt;
-    for (int i = 0; i < ty->ptr_cnt; i++) {
-      temp_ty = temp_ty->getPointerTo();
-    }
-    bt = temp_ty;
-  }
-  if (ty->is_arr) {
-    type_t* temp = ty;
-    Type* temp_ty = bt;
-    while (temp->is_arr) {
-      temp = temp->pointer;
-      temp_ty = ArrayType::get(temp_ty, temp->arr_size->value);
-    }
-    bt = temp_ty;
-  }
+  bt = backend_get_ptr_arr_mod(ty, bt);
   return bt;
 }
 
@@ -143,7 +152,7 @@ Type* backend_get_var_type(Value* var) {
 }
 
 Value* backend_gen_dif(Value* val, Type* val_type, Type* expected_type, bool sign) {
-  if (val_type->isArrayTy() || val_type->isPointerTy() || expected_type == nullptr || val_type == expected_type) {
+  if (val_type->isArrayTy() || val_type->isPointerTy() || val_type->isStructTy() || expected_type == nullptr || val_type == expected_type) {
     return val;
   }
   if (sign) {
@@ -504,6 +513,11 @@ std::tuple<Type*,Value*> backend_gen_struct_acc(node_t* node) {
       auto gep = backend_arr_gep(ty, temp, val);
       val = std::get<1>(gep);
       ty = std::get<0>(gep);
+    } else {
+      if (ty->isPointerTy() && temp->lhs) {
+        val = builder.CreateLoad(ty, val);
+        ty = ty->getPointerElementType();
+      }
     }
   }
   return {ty, val};
