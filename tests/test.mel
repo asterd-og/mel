@@ -1,6 +1,6 @@
 fn print(var fmt: *char): void;
 fn printInt(var num: u64): void;
-fn printChar(var num: *char): void;
+fn printChar(var chr: char): void;
 fn allocMem(var size: u64): *u64;
 fn freeMem(var ptr: *u64): void;
 fn getRand(var max: u64): u64;
@@ -8,48 +8,20 @@ fn printFmt(var fmt: *char, ...): u64;
 fn getInput(var buf: *char, var size: int): *char;
 fn printBin(var num: u64, var bits: int): void;
 
-struct linkedItem {
-  var next: *linkedItem;
-  var prev: *linkedItem;
-  var data: u64;
-}
-
-struct linkedList {
-  var head: *linkedItem;
-  var items: u64;
-}
-
-fn llCreate(): *linkedList {
-  var list: *linkedList = allocMem(16); // u64 + ptr
-  list.items = 0;
-  list.head = allocMem(24); // u64 + ptr + ptr
-  list.head.prev = list.head;
-  list.head.next = list.head;
-  ret list;
-}
-
-fn llNewItem(var ll: *linkedList, var data: u64): void {
-  var item: *linkedItem = allocMem(24);
-  item.data = data;
-  item.next = ll.head;
-  item.prev = ll.head.prev;
-  ll.head.prev.next = item;
-  ll.head.prev = item;
-}
-
-fn llIterate(var ll: *linkedList): void {
-  for (var item: *linkedItem = ll.head.next; item != ll.head; item = item.next) {
-    printFmt("%ld\n", item.data);
-  }
-}
-
 fn main(): int {
-  var ll: *linkedList = llCreate();
-  llNewItem(ll, 6);
-  llNewItem(ll, 9);
-  llNewItem(ll, 4);
-  llNewItem(ll, 2);
-  llNewItem(ll, 0);
-  llIterate(ll);
+  for (var num: int = 0; num < 100; num += 1) {
+    if (num % 3 == 0) {
+      printFmt("fizz");
+    }
+    if (num % 5 == 0) {
+      printFmt("buzz");
+    }
+    if (num % 3 > 0) {
+      if (num % 5 > 0) {
+        printFmt("%d", num);
+      }
+    }
+    printFmt("\n");
+  }
   ret 0;
 }

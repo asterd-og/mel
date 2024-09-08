@@ -1,6 +1,6 @@
 fn print(var fmt: *char): void;
 fn printInt(var num: u64): void;
-fn printChar(var num: *char): void;
+fn printChar(var chr: char): void;
 fn allocMem(var size: u64): *u64;
 fn freeMem(var ptr: *u64): void;
 fn getRand(var max: u64): u64;

@@ -545,6 +545,10 @@ std::tuple<Type*,Value*> backend_gen_lvalue(node_t* lvalue) {
     case NODE_STRUCT_ACC:
       return backend_gen_struct_acc(lvalue);
       break;
+    default:
+      // TODO: Dereferencing
+      printf("Unhandled lvalue.\n");
+      break;
   }
   return {};
 }
@@ -676,6 +680,7 @@ void backend_gen_if_stmt(node_t* node) {
   current_block = true_body;
   inside_scope++;
   backend_gen_stmt(stmt->true_stmt);
+  BasicBlock* end_true_body = current_block;
   BasicBlock* else_body;
   BasicBlock* end_else_body;
 
@@ -690,7 +695,7 @@ void backend_gen_if_stmt(node_t* node) {
   }
 
   BasicBlock* end_body = BasicBlock::Create(context, "if.end", current_fn);
-  builder.SetInsertPoint(true_body);
+  builder.SetInsertPoint(end_true_body);
   builder.CreateBr(end_body);
   inside_scope--;
 
