@@ -20,6 +20,7 @@ bool fn_ret = false;
 int inside_scope = 0;
 type_t* current_ty; // parser ty, handles signess
 BasicBlock* current_block;
+bool should_br = true; // should put a br instruction at the end of conditional statement blocks?
 std::map<std::string, Function*> fn_map;
 std::map<std::string, Value*> var_map;
 std::map<std::string, type_t*> var_types;
@@ -31,6 +32,7 @@ Type* backend_get_llvm_type(type_t* ty);
 Value* backend_gen_expr(Type* ty, node_t* node);
 std::tuple<Type*,Value*> backend_gen_struct_acc(node_t* node);
 std::tuple<Type*,Value*> backend_gen_deref(node_t* node);
+std::tuple<Type*,Value*> backend_gen_ref(node_t* node);
 
 Type* backend_get_ptr_arr_mod(type_t* ty, Type* bt) {
   if (ty->is_pointer) {
@@ -275,7 +277,7 @@ Value* backend_gen_aop(int node_type, bool _signed, Value* lhs, Value* expr) {
 std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
   Value *lhs, *rhs;
   Value* val;
-  if (node->lhs && node->type != NODE_STRUCT_ACC && node->type != NODE_AT) {
+  if (node->lhs && node->type != NODE_STRUCT_ACC && node->type != NODE_AT && node->type != NODE_REF) {
     auto expr = backend_gen_iexpr(ty, node->lhs);
     lhs = std::get<1>(expr);
     if (ty == nullptr) {
@@ -346,6 +348,12 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       val = std::get<1>(deref);
       ty = std::get<0>(deref);
       val = builder.CreateLoad(ty, val);
+      break;
+    }
+    case NODE_REF: {
+      auto ref = backend_gen_ref(node);
+      val = std::get<1>(ref);
+      ty = std::get<0>(ref);
       break;
     }
     default:
@@ -535,7 +543,25 @@ std::tuple<Type*,Value*> backend_gen_deref(node_t* node) {
   std::tuple<Type*,Value*> expr;
   Value* val;
   Type* ty;
-  if (node->lhs->type != NODE_ID) {
+  // TODO: Probably check if ty is a pointer... this should be done in parser, no?
+  if (node->lhs->type == NODE_STRUCT_ACC) {
+    auto struct_acc = backend_gen_struct_acc(node->lhs);
+    val = std::get<1>(struct_acc);
+    ty = std::get<0>(struct_acc);
+    ty = ty->getPointerElementType();
+  } else if (node->lhs->type == NODE_ID) {
+    expr = backend_gen_iexpr(nullptr, node->lhs);
+    val = std::get<1>(expr);
+    ty = std::get<0>(expr);
+    ty = ty->getPointerElementType();
+  } else if (node->lhs->type == NODE_ARR_IDX) {
+    char* name = parse_str(node->lhs->tok);
+    Value* var = var_map[name];
+    auto arr_idx = backend_arr_gep(backend_get_var_type(var), node->lhs, var);
+    val = std::get<1>(arr_idx);
+    ty = std::get<0>(arr_idx);
+    ty = ty->getPointerElementType();
+  } else {
     node_t* var_node = node->lhs->lhs;
     char* name = parse_str(var_node->tok);
     Value* var = var_map[name];
@@ -547,11 +573,46 @@ std::tuple<Type*,Value*> backend_gen_deref(node_t* node) {
     expr = backend_gen_iexpr(nullptr, node->lhs->rhs);
     val = std::get<1>(expr);
     val = builder.CreateGEP(ty, var, val);
+  }
+  return {ty, val};
+}
+
+std::tuple<Type*,Value*> backend_gen_ref(node_t* node) {
+  // lhs is the expression
+  std::tuple<Type*,Value*> expr;
+  Value* val;
+  Type* ty;
+  Value* var;
+  std::vector<Value*> idx;
+  if (node->lhs->type == NODE_STRUCT_ACC) {
+    auto struct_acc = backend_gen_struct_acc(node->lhs);
+    val = std::get<1>(struct_acc);
+    ty = std::get<0>(struct_acc);
+  } else if (node->lhs->type == NODE_ID) {
+    char* name = parse_str(node->lhs->tok);
+    var = var_map[name];
+    free(name);
+    val = var;
+    ty = var->getType();
+  } else if (node->lhs->type == NODE_ARR_IDX) {
+    char* name = parse_str(node->lhs->tok);
+    var = var_map[name];
+    free(name);
+    auto arr_idx = backend_arr_gep(backend_get_var_type(var), node->lhs, var);
+    val = std::get<1>(arr_idx);
+    ty = std::get<0>(arr_idx);
   } else {
-    expr = backend_gen_iexpr(nullptr, node->lhs);
-    val = std::get<1>(expr);
-    ty = std::get<0>(expr);
+    node_t* var_node = node->lhs->lhs;
+    char* name = parse_str(var_node->tok);
+    Value* var = var_map[name];
+    ty = backend_get_llvm_type(var_types[name]);
+
+    var = builder.CreateLoad(ty, var);
     ty = ty->getPointerElementType();
+
+    expr = backend_gen_iexpr(nullptr, node->lhs->rhs);
+    val = std::get<1>(expr);
+    val = builder.CreateGEP(ty, var, val);
   }
   return {ty, val};
 }
@@ -581,8 +642,10 @@ std::tuple<Type*,Value*> backend_gen_lvalue(node_t* lvalue) {
     case NODE_AT:
       return backend_gen_deref(lvalue);
       break;
+    case NODE_REF:
+      return backend_gen_ref(lvalue);
+      break;
     default:
-      // TODO: Dereferencing
       printf("Unhandled lvalue.\n");
       break;
   }
@@ -611,6 +674,7 @@ void backend_gen_ret(node_t* node) {
     builder.CreateRet(backend_gen_expr(current_fn->getReturnType(), node->lhs));
   }
   if (!inside_scope) fn_ret = true;
+  if (inside_scope) should_br = false;
 }
 
 Value* backend_gen_cond(node_t* cond) {
@@ -690,7 +754,8 @@ void backend_gen_for_loop(node_t* node) {
   builder.SetInsertPoint(body);
   current_block = body;
   backend_gen_stmt(stmt->body);
-  builder.CreateBr(step);
+  if (should_br) builder.CreateBr(step);
+  else should_br = true;
 
   inside_scope--;
 
@@ -716,6 +781,9 @@ void backend_gen_if_stmt(node_t* node) {
   current_block = true_body;
   inside_scope++;
   backend_gen_stmt(stmt->true_stmt);
+  bool true_should_br = should_br;
+  should_br = true;
+  bool false_should_br = true;
   BasicBlock* end_true_body = current_block;
   BasicBlock* else_body;
   BasicBlock* end_else_body;
@@ -728,14 +796,16 @@ void backend_gen_if_stmt(node_t* node) {
     backend_gen_stmt(stmt->false_stmt);
     end_else_body = current_block;
     inside_scope--;
+    false_should_br = should_br;
+    should_br = true;
   }
 
   BasicBlock* end_body = BasicBlock::Create(context, "if.end", current_fn);
   builder.SetInsertPoint(end_true_body);
-  builder.CreateBr(end_body);
+  if (true_should_br) builder.CreateBr(end_body);
   inside_scope--;
 
-  if (stmt->false_stmt) {
+  if (stmt->false_stmt && false_should_br) {
     if (end_else_body != else_body) {
       builder.SetInsertPoint(end_else_body);
       builder.CreateBr(end_body);
@@ -767,7 +837,8 @@ void backend_gen_while_loop(node_t* node) {
   builder.SetInsertPoint(body);
   current_block = body;
   backend_gen_stmt(stmt->body);
-  builder.CreateBr(cond);
+  if (should_br) builder.CreateBr(cond);
+  else should_br = true;
   inside_scope--;
 
   BasicBlock* end = BasicBlock::Create(context, "while.end", current_fn);

@@ -9,5 +9,13 @@ fn getInput(var buf: *char, var size: int): *char;
 fn printBin(var num: u64, var bits: int): void;
 
 fn main(): int {
+  var test: *u64[10];
+  for (var i: int = 0; i < 10; i += 1) {
+    test[i] = allocMem(8);
+    @test[i] = i;
+  }
+  for (var j: int = 0; j < 10; j += 1) {
+    printFmt("%ld\n", @test[j]);
+  }
   ret 0;
 }
