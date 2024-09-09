@@ -159,7 +159,26 @@ node_t* parse_lvalue(parser_t* parser) {
   node_t* node;
   if (name->type == TOK_AT) {
     parser_consume(parser);
-    node_t* expr = parse_simple_expr(parser);
+    node_t* expr = parse_expr(parser, NULL);
+    node_t* id = NULL;
+    //FIXME: Find a better way to do this.
+    if (expr->lhs) {
+      if (expr->lhs->type != NODE_ID) {
+        parser_error(parser, "Expected to dereference a pointer.");
+        return NULL;
+      }
+      id = expr->lhs;
+    } else {
+      if (expr->type != NODE_ID) {
+        parser_error(parser, "Expected to dereference a pointer.");
+        return NULL;
+      }
+      id = expr;
+    }
+    if (!parser_find_obj(parser, parse_str(id->tok))->type->is_pointer) {
+      parser_error(parser, "'%s' is not a pointer.", name);
+      return NULL;
+    }
     node = NEW_DATA(node_t);
     node->type = NODE_AT;
     node->lhs = expr;

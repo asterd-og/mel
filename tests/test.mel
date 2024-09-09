@@ -9,5 +9,12 @@ fn getInput(var buf: *char, var size: int): *char;
 fn printBin(var num: u64, var bits: int): void;
 
 fn main(): int {
+  var ptr: *u32 = allocMem(4 * 5);
+  @ptr = 0xffff00ff;
+  @ptr + 1 = 0xff00ff00;
+  @ptr + 2 = 0xff434343;
+  @ptr + 3 = 0xff696969;
+  @ptr + 4 = 0xaabbccdd;
+  printFmt("%x\n", @ptr + 3);
   ret 0;
 }

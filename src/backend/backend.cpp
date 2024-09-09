@@ -30,6 +30,7 @@ Value* backend_gen_fn_call(node_t* node);
 Type* backend_get_llvm_type(type_t* ty);
 Value* backend_gen_expr(Type* ty, node_t* node);
 std::tuple<Type*,Value*> backend_gen_struct_acc(node_t* node);
+std::tuple<Type*,Value*> backend_gen_deref(node_t* node);
 
 Type* backend_get_ptr_arr_mod(type_t* ty, Type* bt) {
   if (ty->is_pointer) {
@@ -274,7 +275,7 @@ Value* backend_gen_aop(int node_type, bool _signed, Value* lhs, Value* expr) {
 std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
   Value *lhs, *rhs;
   Value* val;
-  if (node->lhs && node->type != NODE_STRUCT_ACC) {
+  if (node->lhs && node->type != NODE_STRUCT_ACC && node->type != NODE_AT) {
     auto expr = backend_gen_iexpr(ty, node->lhs);
     lhs = std::get<1>(expr);
     if (ty == nullptr) {
@@ -338,6 +339,13 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       val = builder.CreateLoad(member_ty, val);
       val = backend_gen_dif(val, member_ty, ty, (current_ty ? current_ty->_signed : false));
       ty = member_ty;
+      break;
+    }
+    case NODE_AT: {
+      auto deref = backend_gen_deref(node);
+      val = std::get<1>(deref);
+      ty = std::get<0>(deref);
+      val = builder.CreateLoad(ty, val);
       break;
     }
     default:
@@ -523,6 +531,31 @@ std::tuple<Type*,Value*> backend_gen_struct_acc(node_t* node) {
   return {ty, val};
 }
 
+std::tuple<Type*,Value*> backend_gen_deref(node_t* node) {
+  std::tuple<Type*,Value*> expr;
+  Value* val;
+  Type* ty;
+  if (node->lhs->type != NODE_ID) {
+    node_t* var_node = node->lhs->lhs;
+    char* name = parse_str(var_node->tok);
+    Value* var = var_map[name];
+    ty = backend_get_llvm_type(var_types[name]);
+
+    var = builder.CreateLoad(ty, var);
+    ty = ty->getPointerElementType();
+
+    expr = backend_gen_iexpr(nullptr, node->lhs->rhs);
+    val = std::get<1>(expr);
+    val = builder.CreateGEP(ty, var, val);
+  } else {
+    expr = backend_gen_iexpr(nullptr, node->lhs);
+    val = std::get<1>(expr);
+    ty = std::get<0>(expr);
+    ty = ty->getPointerElementType();
+  }
+  return {ty, val};
+}
+
 std::tuple<Type*,Value*> backend_gen_lvalue(node_t* lvalue) {
   switch (lvalue->type) {
     case NODE_ID: {
@@ -544,6 +577,9 @@ std::tuple<Type*,Value*> backend_gen_lvalue(node_t* lvalue) {
     }
     case NODE_STRUCT_ACC:
       return backend_gen_struct_acc(lvalue);
+      break;
+    case NODE_AT:
+      return backend_gen_deref(lvalue);
       break;
     default:
       // TODO: Dereferencing
