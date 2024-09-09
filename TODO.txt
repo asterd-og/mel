@@ -24,7 +24,7 @@ Assertions
 ========================
 Code Gen TODO:
 
-dereferencing & referencing
+referencing
 Structure initialisation (maybe)
 
 pointers to arrays.
