@@ -33,23 +33,27 @@ int main(int argc, char** argv) {
   parser_t* parser = parser_create(lexer);
   parser_parse(parser);
 
-  char* asm_name;
+  char* cg_name;
   char* obj_name;
 
 #ifdef DEBUG
-  asm_name = "out.asm";
+  cg_name = "out.ll";
   printf("AST Viewer results:\n");
 
   ast_view(parser->ast);
 #else
   srand(time(NULL));
-  char* asm_name = (char*)malloc(11); // 6 random digits (dot) asm
-  char* obj_name = (char*)malloc(11); // 6 random digits (dot) asm
+  cg_name = (char*)malloc(11); // 6 random digits (dot) ll
   uint32_t num = rand() % 999999;
+  sprintf(cg_name, "%d.ll", num);
 #endif
-  backend_gen(parser->ast, obj_name);
+  backend_gen(parser->ast, cg_name);
 
 #ifndef DEBUG
+  char* command = (char*)malloc(128);
+  sprintf(command, "llc -filetype=obj %s -o %s -opaque-pointers", cg_name, argv[2]);
+  system(command);
+  remove(cg_name);
 #endif
 
   lexer_destroy(lexer);

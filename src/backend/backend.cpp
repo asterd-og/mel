@@ -922,6 +922,7 @@ extern "C" void backend_gen(list_t* ast, char* out) {
   raw_string_ostream stream(buffer);
   module.print(stream, nullptr);
 
-  std::ofstream ll("out.ll");
+  std::ofstream ll(out);
   ll << stream.str() << std::endl;
+  ll.close();
 }

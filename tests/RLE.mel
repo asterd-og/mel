@@ -11,7 +11,11 @@ fn RLEEncode(var str: *char): *char {
     if (current_char == old_char) {
       cnt += 1;
     } else {
-      StrPrintFmt(new_str, "%s%d%c", new_str, cnt, old_char);
+      if (cnt == 1) {
+        StrPrintFmt(new_str, "%s%c", new_str, old_char);
+      } else {
+        StrPrintFmt(new_str, "%s%d%c", new_str, cnt, old_char);
+      }
       cnt = 1;
     }
     old_char = current_char;
@@ -31,9 +35,13 @@ fn RLEDecode(var str: *char): *char {
     } else {
       num_buf[num_idx] = 0;
       num_idx = 0;
-      num = StrToInt(num_buf);
-      for (var i: int = 0; i < num; i += 1) {
+      if (num_buf[0] == 0) {
         StrPrintFmt(new_str, "%s%c", new_str, str[idx]);
+      } else {
+        num = StrToInt(num_buf);
+        for (var i: int = 0; i < num; i += 1) {
+          StrPrintFmt(new_str, "%s%c", new_str, str[idx]);
+        }
       }
     }
   }

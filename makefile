@@ -2,8 +2,9 @@ CC=clang
 CXX=clang++
 LLVM_CONFIG=llvm-config
 
-CXXFLAGS=$(shell $(LLVM_CONFIG) --cxxflags) -DDEBUG -fPIC -g
-CFLAGS=$(shell $(LLVM_CONFIG) --cflags) -DDEBUG -fPIC -g
+# -DDEBUG
+CXXFLAGS=$(shell $(LLVM_CONFIG) --cxxflags) -fPIC -g
+CFLAGS=$(shell $(LLVM_CONFIG) --cflags) -fPIC -g
 LDFLAGS=$(shell $(LLVM_CONFIG) --ldflags)
 LIBS=$(shell $(LLVM_CONFIG) --libs core irreader)
 
