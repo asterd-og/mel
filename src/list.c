@@ -21,6 +21,12 @@ void list_add(list_t* l, void* data) {
   l->size++;
 }
 
+void list_import(list_t* to, list_t* from) {
+  for (list_item_t* item = from->head->next; item != from->head; item = item->next) {
+    list_add(to, item->data);
+  }
+}
+
 void list_destroy(list_t* l, bool free_item_data) {
   list_item_t* next;
   for (list_item_t* item = l->head->next; item != l->head; item = next) {

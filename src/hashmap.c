@@ -73,6 +73,15 @@ void hashmap_resize(hashmap_t* hm, uint64_t new_size) {
   hm->size = new_size;
 }
 
+void hashmap_import(hashmap_t* to, hashmap_t* from) {
+  for (uint64_t i = 0; i < from->size; i++) {
+    if (from->table[i].entries == NULL || from->table[i].collisions == 0) continue;
+    for (uint64_t j = 0; j < from->table[i].collisions; j++) {
+      hashmap_add(to, from->table[i].entries[j].key, from->table[i].entries[j].data);
+    }
+  }
+}
+
 void hashmap_destroy(hashmap_t* hm) {
   for (uint64_t i = 0; i < hm->size; i++) {
     if (hm->table[i].entries == NULL || hm->table[i].collisions == 0) continue;

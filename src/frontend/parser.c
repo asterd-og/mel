@@ -4,6 +4,8 @@
 #include "type_checker.h"
 #include <stdlib.h>
 #include <string.h>
+#include "../file.h"
+#include <libgen.h>
 
 parser_t* parser_create(lexer_t* lexer) {
   parser_t* parser = (parser_t*)malloc(sizeof(parser_t));
@@ -322,6 +324,41 @@ node_t* parse_stmt(parser_t* parser) {
   return ret;
 }
 
+void parse_import(parser_t* parser) {
+  token_t* name_tok = parser_eat(parser, TOK_STRING);
+  char* name = parse_str(name_tok);
+  char* path = dirname(parser->lexer->filename);
+  char* temp = malloc(name_tok->text_len + 1 + strlen(path));
+  strcpy(temp, path);
+  strcat(temp, "/");
+  strcat(temp, name);
+  free(name);
+  name = temp;
+  char* file = open_file(name); // TODO: Look for it firstly in the /usr/mel/include, then on current path
+  if (!file) {
+    parser_error(parser, "Couldn't open file '%s'.", name);
+  }
+  lexer_t* lexer = lexer_create(file, name);
+  lexer_lex(lexer);
+
+  parser_t* import = parser_create(lexer);
+  parser_parse(import);
+  free(name);
+
+  list_import(parser->ast, import->ast);
+
+  hashmap_import(parser->glb_obj, import->glb_obj);
+  hashmap_import(parser->tychk->types_hm, import->tychk->types_hm); // TODO: Stop importing primitives.
+
+  hashmap_destroy(import->glb_obj);
+  hashmap_destroy(import->tychk->types_hm);
+  // FIXME: lexer_destroy(lexer); maybe dont destroy tokens!?
+  list_destroy(import->ast, false);
+  free(import->scope);
+  free(import);
+  parser_eat(parser, TOK_SEMI);
+}
+
 void parser_parse(parser_t* parser) {
   list_t* tok_list = parser->lexer->tok_list;
   parser->lexer_iterator = tok_list->head->next;
@@ -334,6 +371,10 @@ void parser_parse(parser_t* parser) {
   while (((token_t*)(parser->lexer_iterator->next->data))->type != TOK_EOF) {
     node_t* node;
     switch (parser->token->type) {
+      case TOK_IMPORT:
+        parse_import(parser);
+        parser_consume(parser); // skip ;
+        break;
       case TOK_VAR:
         node = parse_var_decl(parser, false, false);
         parser_consume(parser); // skip ;
@@ -346,9 +387,14 @@ void parser_parse(parser_t* parser) {
       case TOK_STRUCT:
         parse_struct_decl(parser);
         break;
+      case TOK_EOF:
+        goto exit;
+        break;
       default:
         parser_error(parser, "Unexpected expression outside of scope.\n");
         break;
     }
   }
+exit:
+;
 }

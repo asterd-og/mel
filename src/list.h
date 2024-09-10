@@ -18,5 +18,5 @@ typedef struct {
 
 list_t* list_create();
 void list_add(list_t* l, void* data);
-list_item_t* list_iterate(list_t* l);
+void list_import(list_t* to, list_t* from);
 void list_destroy(list_t* l, bool free_item_data);

@@ -24,4 +24,5 @@ uint64_t hashmap_hash(const char* key);
 void hashmap_add(hashmap_t* hm, char* key, void* data);
 void* hashmap_get(hashmap_t* hm, char* key);
 void hashmap_resize(hashmap_t* hm, uint64_t new_size);
+void hashmap_import(hashmap_t* to, hashmap_t* from);
 void hashmap_destroy(hashmap_t* hm);

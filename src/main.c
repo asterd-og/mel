@@ -6,32 +6,11 @@
 #include <time.h>
 #include "list.h"
 #include "hashmap.h"
+#include "file.h"
 #include "frontend/lexer.h"
 #include "frontend/parser.h"
 #include "frontend/ast_viewer.h"
 #include "backend/backend.h"
-
-#define CC "cc"
-
-char* open_file(char* filename) {
-  FILE* fp = fopen(filename, "rb");
-  if (!fp) return NULL;
-
-  fseek(fp, 0, SEEK_END);
-  long size = ftell(fp);
-  fseek(fp, 0, SEEK_SET);
-
-  char* buffer = (char*)malloc(size + 1);
-  if (!buffer) {
-    fprintf(stderr, "mel: Error while creating file buffer.\n");
-    return NULL;
-  }
-  fread(buffer, 1, size, fp);
-
-  buffer[size] = 0;
-  fclose(fp);
-  return buffer;
-}
 
 int main(int argc, char** argv) {
   if (argc < 2) {
@@ -51,11 +30,6 @@ int main(int argc, char** argv) {
   lexer_t* lexer = lexer_create(file, argv[1]);
   lexer_lex(lexer);
 
-  /*for (list_item_t* item = lexer->tok_list->head->next; item != lexer->tok_list->head; item = item->next) {
-    token_t* tok = (token_t*)item->data;
-    printf("%s - %.*s\n", type_to_str[tok->type], tok->text_len, tok->text);
-  }*/
-
   parser_t* parser = parser_create(lexer);
   parser_parse(parser);
 
@@ -72,20 +46,10 @@ int main(int argc, char** argv) {
   char* asm_name = (char*)malloc(11); // 6 random digits (dot) asm
   char* obj_name = (char*)malloc(11); // 6 random digits (dot) asm
   uint32_t num = rand() % 999999;
-  sprintf(asm_name, "%06d.c", num);
-  sprintf(obj_name, "%06d.o", num);
 #endif
   backend_gen(parser->ast, obj_name);
 
 #ifndef DEBUG
-  char* cmd = (char*)malloc(50);
-  char* cmd2 = (char*)malloc(50);
-  sprintf(cmd, "%s %s -o %s", CC, asm_name, obj_name);
-  sprintf(cmd2, "%s %s lib/mlib.a -o %s", CC, obj_name, argv[2]);
-  system(cmd);
-  system(cmd2);
-  remove(asm_name);
-  remove(obj_name);
 #endif
 
   lexer_destroy(lexer);

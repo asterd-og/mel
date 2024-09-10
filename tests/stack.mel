@@ -1,0 +1,49 @@
+fn print(var fmt: *char): void;
+fn printInt(var num: u64): void;
+fn printChar(var chr: char): void;
+fn allocMem(var size: u64): *u64;
+fn freeMem(var ptr: *u64): void;
+fn getRand(var max: u64): u64;
+fn printFmt(var fmt: *char, ...): u64;
+fn getInput(var buf: *char, var size: int): *char;
+fn printBin(var num: u64, var bits: int): void;
+
+struct stackT {
+  var data: *int;
+  var cap: u64;
+  var idx: u64;
+}
+
+fn stackCreate(var cap: u64): *stackT {
+  var stack: *stackT = allocMem(24);
+  stack.cap = cap;
+  stack.data = allocMem(cap * 4);
+  stack.idx = 0;
+  ret stack;
+}
+
+fn stackPush(var stack: *stackT, var value: int): void {
+  if (stack.idx > stack.cap) {
+    printFmt("Error: Too many items on the stack.\n");
+  } else {
+    stack.data[stack.idx] = value;
+    stack.idx += 1;
+  }
+}
+
+fn stackPop(var stack: *stackT): int {
+  if (stack.idx == 0) { ret 0; }
+  stack.idx -= 1;
+  ret stack.data[stack.idx];
+}
+
+fn main(): int {
+  var stack: *stackT = stackCreate(10);
+  for (var i: int = 1; i <= 10; i += 1) {
+    stackPush(stack, i);
+  }
+  for (var i: int = 1; i <= 10; i += 1) {
+    printFmt("%d\n", stackPop(stack));
+  }
+  ret 0;
+}
