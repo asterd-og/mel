@@ -303,6 +303,13 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       free(str);
       break;
     }
+    case NODE_EXCL: {
+      if (ty == nullptr) ty = Type::getInt32Ty(context);
+      Value *zero = backend_load_int(ty, 0);
+      val = builder.CreateICmpEQ(lhs, zero);
+      ty = builder.getIntNTy(1);
+      break;
+    }
     case NODE_ID: {
       char* str = parse_str(node->tok);
       Value* var = var_map.find(std::string(str))->second;
@@ -677,8 +684,8 @@ void backend_gen_ret(node_t* node) {
   if (inside_scope) should_br = false;
 }
 
-Value* backend_gen_cond(node_t* cond) {
-  if (cond->type >= NODE_EQEQ && cond->type <= NODE_DBOR && cond->type != NODE_NOT) {
+void backend_gen_cond(node_t* cond, BasicBlock* true_block, BasicBlock* false_block) {
+  if (cond->type >= NODE_EQEQ && cond->type <= NODE_NOTEQ && cond->type != NODE_NOT) {
     auto first_expr = backend_gen_iexpr(nullptr, cond->lhs);
     type_t* ty = current_ty;
     auto second_expr = backend_gen_iexpr(std::get<0>(first_expr), cond->rhs);
@@ -721,10 +728,29 @@ Value* backend_gen_cond(node_t* cond) {
         cmp = builder.CreateICmpNE(lhs, rhs, "cmp");
         break;
     }
-    return cmp;
+    builder.CreateCondBr(cmp, true_block, false_block);
   } else {
-    outs()<<"To be implemented.\n";
-    return nullptr;
+    Value* cmp;
+    BasicBlock* temp_block = current_block;
+    if (cond->type == NODE_DBAND) {
+      BasicBlock* land_lhs_true = BasicBlock::Create(context, "land.lhs.true", current_fn);
+      backend_gen_cond(cond->lhs, land_lhs_true, false_block);
+      builder.SetInsertPoint(land_lhs_true);
+      backend_gen_cond(cond->rhs, true_block, false_block);
+      builder.SetInsertPoint(temp_block);
+    } else if (cond->type == NODE_DBOR) {
+      BasicBlock* lor_lhs_false = BasicBlock::Create(context, "lor.lhs.false", current_fn);
+      backend_gen_cond(cond->lhs, true_block, lor_lhs_false);
+      builder.SetInsertPoint(lor_lhs_false);
+      backend_gen_cond(cond->rhs, true_block, false_block);
+      builder.SetInsertPoint(temp_block);
+    } else {
+      auto first_expr = backend_gen_iexpr(nullptr, cond);
+      Value* val = std::get<1>(first_expr);
+      Value* zero = backend_load_int(std::get<0>(first_expr), 0);
+      cmp = builder.CreateICmpUGT(val, zero, "cmp");
+      builder.CreateCondBr(cmp, true_block, false_block);
+    }
   }
 }
 
@@ -741,7 +767,6 @@ void backend_gen_for_loop(node_t* node) {
   BasicBlock* cond = BasicBlock::Create(context, "for.cond", current_fn);
   builder.SetInsertPoint(cond);
   current_block = cond;
-  Value* cmp = backend_gen_cond(node->lhs);
 
   BasicBlock* step = BasicBlock::Create(context, "for.step", current_fn);
   builder.SetInsertPoint(step);
@@ -766,7 +791,7 @@ void backend_gen_for_loop(node_t* node) {
   builder.CreateBr(cond);
 
   builder.SetInsertPoint(cond);
-  builder.CreateCondBr(cmp, body, end);
+  backend_gen_cond(node->lhs, body, end);
 
   builder.SetInsertPoint(end);
 }
@@ -774,7 +799,6 @@ void backend_gen_for_loop(node_t* node) {
 void backend_gen_if_stmt(node_t* node) {
   if_stmt_t* stmt = (if_stmt_t*)node->data;
   BasicBlock* entry_block = current_block;
-  Value* cmp = backend_gen_cond(node->lhs);
 
   BasicBlock* true_body = BasicBlock::Create(context, "if.then", current_fn);
   builder.SetInsertPoint(true_body);
@@ -816,7 +840,7 @@ void backend_gen_if_stmt(node_t* node) {
   }
 
   builder.SetInsertPoint(entry_block);
-  builder.CreateCondBr(cmp, true_body, (stmt->false_stmt ? else_body : end_body));
+  backend_gen_cond(node->lhs, true_body, (stmt->false_stmt ? else_body : end_body));
 
   builder.SetInsertPoint(end_body);
   current_block = end_body;
@@ -830,7 +854,6 @@ void backend_gen_while_loop(node_t* node) {
   BasicBlock* cond = BasicBlock::Create(context, "while.cond", current_fn);
   builder.SetInsertPoint(cond);
   current_block = cond;
-  Value* cmp = backend_gen_cond(node->lhs);
 
   inside_scope++;
   BasicBlock* body = BasicBlock::Create(context, "while.body", current_fn);
@@ -848,7 +871,7 @@ void backend_gen_while_loop(node_t* node) {
   builder.CreateBr(cond);
 
   builder.SetInsertPoint(cond);
-  builder.CreateCondBr(cmp, body, end);
+  backend_gen_cond(node->lhs, body, end);
 
   builder.SetInsertPoint(end);
 }

@@ -423,20 +423,40 @@ node_t* parse_ret(parser_t* parser) {
   return node;
 }
 
-node_t* parse_condition(parser_t* parser) {
+node_t* parse_internal_condition(parser_t* parser) {
   node_t* lhs = parse_expression(parser, NULL);
-  if (parser->token->type < TOK_EQEQ || parser->token->type > TOK_DBPIPE) {
+  if ((parser->token->type < TOK_EQEQ || parser->token->type > TOK_LTEQ) && parser->token->type != TOK_EXCLEQ) {
     // if (expr), we treat that as if (expr >= 1)
     return lhs;
   }
   node_t* node = NEW_DATA(node_t);
   node->tok = parser->token;
   node->rhs = false;
-  // FIXME: Correct this translation.
   node->type = NODE_EQEQ + (parser->token->type - TOK_EQEQ);
   parser_consume(parser);
   node_t* rhs = parse_expression(parser, NULL);
   node->lhs = lhs; node->rhs = rhs;
+  return node;
+}
+
+node_t* parse_condition(parser_t* parser) {
+  node_t* lhs = parse_internal_condition(parser);
+  node_t* node = lhs;
+  if (parser->token->type == TOK_DBAMPER) {
+    parser_consume(parser);
+    node_t* rhs = parse_condition(parser);
+    node = NEW_DATA(node_t);
+    node->type = NODE_DBAND;
+    node->lhs = lhs;
+    node->rhs = rhs;
+  } else if (parser->token->type == TOK_DBPIPE) {
+    parser_consume(parser);
+    node_t* rhs = parse_condition(parser);
+    node = NEW_DATA(node_t);
+    node->type = NODE_DBOR;
+    node->lhs = lhs;
+    node->rhs = rhs;
+  }
   return node;
 }
 

@@ -83,7 +83,7 @@ void expr_view(node_t* node) {
     term_view(node);
     return;
   }
-  node_t* lhs = (node->type == NODE_AT || node->type == NODE_REF || node->type == NODE_STRUCT_ACC ? node : node->lhs);
+  node_t* lhs = (node->type == NODE_AT || node->type == NODE_NEG || NODE_EXCL || node->type == NODE_NOT ||  node->type == NODE_REF || node->type == NODE_STRUCT_ACC ? node : node->lhs);
   printf("(");
   static char* table[] = {"+", "-", "*", "/", "%", "<<", ">>", "&", "|", "^"};
   term_view(lhs);
@@ -221,12 +221,22 @@ void ret_view(node_t* node) {
 
 void cond_view(node_t* cond) {
   static char* op[] = {"==", ">", ">=", "<", "<=", "!", "!=", "&", "&&", "|", "||"};
-  if (cond->type >= NODE_EQEQ && cond->type <= NODE_DBOR && cond->type != NODE_NOT) {
+  if (cond->type >= NODE_EQEQ && cond->type <= NODE_NOTEQ && cond->type != NODE_NOT) {
     expr_view(cond->lhs);
     printf(" %s ", op[cond->type - NODE_EQEQ]);
     expr_view(cond->rhs);
   } else {
-    expr_view(cond);
+    if (cond->type == NODE_DBAND) {
+      cond_view(cond->lhs);
+      printf(" && ");
+      cond_view(cond->rhs);
+    } else if (cond->type == NODE_DBOR) {
+      cond_view(cond->lhs);
+      printf(" || ");
+      cond_view(cond->rhs);
+    } else {
+      expr_view(cond);
+    }
   }
 }
 

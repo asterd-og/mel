@@ -1,7 +1,5 @@
 TODO:
 
-multiple conditions (while (cond1 && cond2 && cond3 || cond4))
-
 Float numbers
 
 Implement sizeof
