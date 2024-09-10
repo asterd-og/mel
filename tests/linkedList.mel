@@ -1,12 +1,4 @@
-fn print(var fmt: *char): void;
-fn printInt(var num: u64): void;
-fn printChar(var chr: char): void;
-fn allocMem(var size: u64): *u64;
-fn freeMem(var ptr: *u64): void;
-fn getRand(var max: u64): u64;
-fn printFmt(var fmt: *char, ...): u64;
-fn getInput(var buf: *char, var size: int): *char;
-fn printBin(var num: u64, var bits: int): void;
+import "lib.mh";
 
 struct linkedItem {
   var next: *linkedItem;
