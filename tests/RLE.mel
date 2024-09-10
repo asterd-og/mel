@@ -1,0 +1,51 @@
+import "lib.mh";
+
+fn RLEEncode(var str: *char): *char {
+  var current_char: char = str[0];
+  var old_char: char = str[0];
+  var len: int = strLen(str);
+  var cnt: int = 0;
+  var new_str: *char = allocMem(len * 2);
+  for (var idx: int = 0; idx <= len; idx += 1) {
+    current_char = str[idx];
+    if (current_char == old_char) {
+      cnt += 1;
+    } else {
+      StrPrintFmt(new_str, "%s%d%c", new_str, cnt, old_char);
+      cnt = 1;
+    }
+    old_char = current_char;
+  }
+  ret new_str;
+}
+
+fn RLEDecode(var str: *char): *char {
+  var num_buf: char[11];
+  var num_idx: int = 0;
+  var num: int = 0;
+  var new_str: *char = allocMem(strLen(str));
+  for (var idx: int = 0; idx < strLen(str); idx += 1) {
+    if (ChrIsNum(str[idx]) > 0) {
+      num_buf[num_idx] = str[idx];
+      num_idx += 1;
+    } else {
+      num_buf[num_idx] = 0;
+      num_idx = 0;
+      num = StrToInt(num_buf);
+      for (var i: int = 0; i < num; i += 1) {
+        StrPrintFmt(new_str, "%s%c", new_str, str[idx]);
+      }
+    }
+  }
+  ret new_str;
+}
+
+fn main(): int {
+  var encoded: *char = RLEEncode("AAABBBCCC");
+  printFmt("Encoded string: '%s'.\n", encoded);
+  printFmt("Decoded string: '%s'.\n", RLEDecode(encoded));
+  encoded = RLEEncode("AAAAAstrido coding on mel?!");
+  printFmt("Encoded string: '%s'.\n", encoded);
+  printFmt("Decoded string: '%s'.\n", RLEDecode(encoded));
+  ret 0;
+}

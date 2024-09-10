@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 
 // gcc -c mlib.c -o mlib.o
 
@@ -17,6 +18,26 @@ int printFmt(char* fmt, ...) {
   int ret = vfprintf(stdout, fmt, ap);
   va_end(ap);
   return ret;
+}
+
+int StrPrintFmt(char* buffer, char* fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  int ret = vsprintf(buffer, fmt, ap);
+  va_end(ap);
+  return ret;
+}
+
+int StrToInt(char* str) {
+  return atoi(str);
+}
+
+int ChrIsNum(char chr) {
+  return (chr >= '0' && chr <= '9');
+}
+
+int strLen(char* str) {
+  return strlen(str);
 }
 
 char* getInput(char* buffer, int size) {

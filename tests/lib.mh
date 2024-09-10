@@ -7,8 +7,8 @@ fn getRand(var max: u64): u64;
 fn printFmt(var fmt: *char, ...): u64;
 fn getInput(var buf: *char, var size: int): *char;
 fn printBin(var num: u64, var bits: int): void;
-
-struct number {
-  var data: u64;
-  var bits: u64;
-}
+fn StrPrintFmt(var buffer: *char, var fmt: *char, ...): int;
+fn strLen(var str: *char): int;
+fn toChar(var num: char): int;
+fn StrToInt(var str: *char): int;
+fn ChrIsNum(var chr: char): int;
