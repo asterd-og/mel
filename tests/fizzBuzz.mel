@@ -1,0 +1,17 @@
+import "lib.mh";
+
+fn main(): int {
+  for (var i: int = 0; i < 100; i += 1) {
+    if (!(i % 3)) {
+      printFmt("Fizz");
+    }
+    if (!(i % 5)) {
+      printFmt("Buzz");
+    }
+    if (i % 3 && i % 5) {
+      printFmt("%d", i);
+    }
+    printFmt("\n");
+  }
+  ret 0;
+}

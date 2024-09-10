@@ -83,7 +83,7 @@ void expr_view(node_t* node) {
     term_view(node);
     return;
   }
-  node_t* lhs = (node->type == NODE_AT || node->type == NODE_NEG || NODE_EXCL || node->type == NODE_NOT ||  node->type == NODE_REF || node->type == NODE_STRUCT_ACC ? node : node->lhs);
+  node_t* lhs = (node->type == NODE_AT || node->type == NODE_NEG || node->type == NODE_EXCL || node->type == NODE_NOT ||  node->type == NODE_REF || node->type == NODE_STRUCT_ACC ? node : node->lhs);
   printf("(");
   static char* table[] = {"+", "-", "*", "/", "%", "<<", ">>", "&", "|", "^"};
   term_view(lhs);
