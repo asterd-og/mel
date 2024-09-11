@@ -36,12 +36,11 @@ int main(int argc, char** argv) {
   char* cg_name = "out.ll";
   char* obj_name;
 
-  ast_view(parser->ast);
-
 #ifdef DEBUG
   cg_name = "out.ll";
   printf("AST Viewer results:\n");
 
+  ast_view(parser->ast);
 #else
   srand(time(NULL));
   cg_name = (char*)malloc(11); // 6 random digits (dot) ll
