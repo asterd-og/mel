@@ -84,8 +84,8 @@ void expr_view(node_t* node) {
     return;
   }
   node_t* lhs = (node->type == NODE_AT || node->type == NODE_NEG || node->type == NODE_EXCL || node->type == NODE_NOT ||  node->type == NODE_REF || node->type == NODE_STRUCT_ACC ? node : node->lhs);
-  printf("(");
   static char* table[] = {"+", "-", "*", "/", "%", "<<", ">>", "&", "|", "^"};
+  printf("(");
   term_view(lhs);
   if (node->rhs) {
     printf(" %s ", table[node->type - NODE_ADD]);
@@ -255,12 +255,10 @@ void if_view(node_t* node) {
   printf("if (");
   cond_view(node->lhs);
   printf(") ");
-  if (stmt->initialised) {
-    stmt_view(stmt->true_stmt, false);
-    if (stmt->false_stmt) {
-      printf(" else ");
-      stmt_view(stmt->false_stmt, false);
-    }
+  stmt_view(stmt->true_stmt, false);
+  if (stmt->false_stmt != NULL) {
+    printf(" else ");
+    stmt_view(stmt->false_stmt, false);
   }
 }
 

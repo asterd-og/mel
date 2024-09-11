@@ -32,7 +32,9 @@ clean:
 .PHONY: clean
 
 run:
-	./out/mel tests/test.mel test
+	./out/mel tests/test.mel test.o
+	clang test.o lib/mlib.a -o test
+	./test
 
 comp:
 	llc -filetype=obj out.ll -o test.o -opaque-pointers

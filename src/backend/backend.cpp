@@ -155,7 +155,10 @@ Type* backend_get_var_type(Value* var) {
 }
 
 Value* backend_gen_dif(Value* val, Type* val_type, Type* expected_type, bool sign) {
-  if (!val_type->isIntegerTy() || expected_type == nullptr || val_type == expected_type) {
+  if (!backend_get_var_type(val)->isIntegerTy() || expected_type == nullptr || val_type == expected_type) {
+    return val;
+  }
+  if (!expected_type->isIntegerTy() || !val_type->isIntegerTy()) {
     return val;
   }
   if (sign) {
@@ -849,7 +852,7 @@ void backend_gen_if_stmt(node_t* node) {
   BasicBlock* else_body;
   BasicBlock* end_else_body;
 
-  if (stmt->false_stmt) {
+  if (stmt->false_stmt != NULL) {
     inside_scope++;
     else_body = BasicBlock::Create(context, "if.else", current_fn);
     builder.SetInsertPoint(else_body);
@@ -866,7 +869,7 @@ void backend_gen_if_stmt(node_t* node) {
   if (true_should_br) builder.CreateBr(end_body);
   inside_scope--;
 
-  if (stmt->false_stmt && false_should_br) {
+  if (stmt->false_stmt != NULL && false_should_br) {
     if (end_else_body != else_body) {
       builder.SetInsertPoint(end_else_body);
       builder.CreateBr(end_body);

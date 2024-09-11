@@ -431,11 +431,11 @@ node_t* parse_internal_condition(parser_t* parser) {
   }
   node_t* node = NEW_DATA(node_t);
   node->tok = parser->token;
-  node->rhs = false;
   node->type = NODE_EQEQ + (parser->token->type - TOK_EQEQ);
   parser_consume(parser);
   node_t* rhs = parse_expression(parser, NULL);
-  node->lhs = lhs; node->rhs = rhs;
+  node->lhs = lhs;
+  node->rhs = rhs;
   return node;
 }
 
@@ -478,24 +478,21 @@ node_t* parse_if(parser_t* parser) {
   parser_consume(parser); // Advance to the next token
   node_t* cond = parse_condition(parser);
   parser_expect(parser, TOK_RPAR);
-  token_t* open = parser_consume(parser);
-  node_t* true_stmt;
-  if (open->type == TOK_LBRAC) {
-    true_stmt = parse_stmt(parser);
-  } else {
-    parser_expect(parser, TOK_SEMI);
-    parser_consume(parser);
-  }
-  node_t* node = NEW_DATA(node_t);
-  node->type = NODE_IF;
-  node->lhs = cond;
+  parser_consume(parser);
+
   if_stmt_t* stmt = NEW_DATA(if_stmt_t);
-  stmt->initialised = (open->type == TOK_LBRAC);
-  stmt->true_stmt = true_stmt;
+  memset(stmt, 0, sizeof(if_stmt_t));
+
+  stmt->true_stmt = parse_stmt(parser);
+  node_t* false_stmt = NULL;
   if (parser->token->type == TOK_ELSE) {
     parser_consume(parser);
     stmt->false_stmt = parse_stmt(parser);
   }
+
+  node_t* node = NEW_DATA(node_t);
+  node->type = NODE_IF;
+  node->lhs = cond;
   node->data = stmt;
   return node;
 }

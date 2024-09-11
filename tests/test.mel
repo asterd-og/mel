@@ -2,5 +2,11 @@ import "lib.mh";
 import "testHeader.mh";
 
 fn main(): int {
+  if (1 == 2) {
+    printFmt("WOW!\n");
+  }
+  else {
+    printFmt("Ho!\n");
+  }
   ret 0;
 }

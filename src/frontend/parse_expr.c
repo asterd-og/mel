@@ -1,10 +1,11 @@
 #include "parser.h"
+#include <string.h>
 
 // Add_Expression = Term, { ("+" | "-"), Term }
 node_t* parse_add_expr(parser_t* parser, type_t* type) {
   node_t* temp;
   node_t* lhs = parse_term(parser, type);
-  node_t* rhs;
+  node_t* rhs = NULL;
   while (true) {
     token_t* op_tok = parser->token;
     switch (op_tok->type) {
@@ -54,7 +55,7 @@ node_t* parse_add_expr(parser_t* parser, type_t* type) {
 node_t* parse_shift_expr(parser_t* parser, type_t* type) {
   node_t* temp;
   node_t* lhs = parse_add_expr(parser, type);
-  node_t* rhs;
+  node_t* rhs = NULL;
   while (true) {
     token_t* op_tok = parser->token;
     switch (op_tok->type) {
@@ -110,7 +111,7 @@ node_t* parse_shift_expr(parser_t* parser, type_t* type) {
 node_t* parse_bitwise_expr(parser_t* parser, type_t* type) {
   node_t* temp;
   node_t* lhs = parse_shift_expr(parser, type);
-  node_t* rhs;
+  node_t* rhs = NULL;
   while (true) {
     token_t* op_tok = parser->token;
     switch (op_tok->type) {
@@ -309,6 +310,7 @@ node_t* parse_factor(parser_t* parser, type_t* type) {
     }
     case TOK_NUM:
       node = NEW_DATA(node_t);
+      memset(node, 0, sizeof(node_t));
       node->type = NODE_INT;
       node->value = parse_num(tok);
       node->tok = tok;
