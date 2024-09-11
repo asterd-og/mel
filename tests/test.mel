@@ -1,4 +1,5 @@
 import "lib.mh";
+import "testHeader.mh";
 
 fn main(): int {
   ret 0;

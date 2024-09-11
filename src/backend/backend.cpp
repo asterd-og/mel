@@ -165,6 +165,19 @@ Value* backend_gen_dif(Value* val, Type* val_type, Type* expected_type, bool sig
   }
 }
 
+Value* backend_gen_const_arr(Type* ty, list_t* items) {
+  std::vector<llvm::Constant *> values(ty->getArrayNumElements());
+  int i = 0;
+  for (list_item_t* item = items->head->next; item != items->head; item = item->next) {
+    node_t* node = (node_t*)item->data;
+    values[i] = ConstantInt::get(ty->getArrayElementType(), node->value);
+    i++;
+  }
+  auto init = ConstantArray::get(ArrayType::get(ty->getArrayElementType(), values.size()),
+                                 values);
+  return init;
+}
+
 std::tuple<Type*,Value*> backend_arr_gep(Type* ty, node_t* node, Value* var) {
   Value* alloca = var;
   list_t* expr_list = (list_t*)node->data;
@@ -396,18 +409,23 @@ void backend_gen_fn_def(node_t* node) {
   fun_t* fn_node = (fun_t*)node->data;
   std::vector<Type*> params;
   bool vararg = false;
-  for (list_item_t* param = fn_node->params->head->next; param != fn_node->params->head; param = param->next) {
-    node_t* node = (node_t*)param->data;
-    if (node->type == NODE_3DOT) {
-      vararg = true;
-      break;
-    }
-    params.push_back(backend_get_llvm_type(((var_t*)node->data)->type));
-  }
-  FunctionType* fn_type = FunctionType::get(backend_get_llvm_type(fn_node->type), params, vararg);
+  Function* fn;
   char* name = parse_str(fn_node->name);
-  Function* fn = Function::Create(fn_type, Function::ExternalLinkage, name, &module);
-  fn_map[std::string(name)] = fn;
+  if (fn_map.find(name) == fn_map.end()) {
+    for (list_item_t* param = fn_node->params->head->next; param != fn_node->params->head; param = param->next) {
+      node_t* node = (node_t*)param->data;
+      if (node->type == NODE_3DOT) {
+        vararg = true;
+        break;
+      }
+      params.push_back(backend_get_llvm_type(((var_t*)node->data)->type));
+    }
+    FunctionType* fn_type = FunctionType::get(backend_get_llvm_type(fn_node->type), params, vararg);
+    fn = Function::Create(fn_type, Function::ExternalLinkage, name, &module);
+    fn_map[std::string(name)] = fn;
+  } else {
+    fn = fn_map.find(name)->second;
+  }
   free(name);
   if (!fn_node->initialised) return;
   fn_ret = false;
@@ -438,7 +456,14 @@ void backend_gen_fn_def(node_t* node) {
     if (fn->getReturnType() == Type::getVoidTy(context)) {
       builder.CreateRetVoid();
     } else {
-      builder.CreateRet(ConstantInt::get(fn->getReturnType(), 0));
+      Value* ret;
+      if (fn->getReturnType()->isPointerTy()) {
+        ret = builder.CreateAlloca(fn->getReturnType());
+        ret = builder.CreateLoad(fn->getReturnType(), ret);
+      } else {
+        ret = backend_load_int(fn->getReturnType(), 0);
+      }
+      builder.CreateRet(ret);
     }
   }
   current_fn = nullptr;
@@ -461,10 +486,22 @@ void backend_gen_var_def(node_t* node) {
   var_types[std::string(name)] = var_node->type;
   current_ty = var_node->type;
   free(name);
-  if (!var_node->initialised) return;
+  if (!var_node->initialised) {
+    if (isa<GlobalVariable>(var)) {
+      ((GlobalVariable*)var)->setInitializer(ConstantAggregateZero::get(type));
+    }
+    return;
+  }
   if (isa<GlobalVariable>(var)) {
     // TODO: Work with strings.
-    ((GlobalVariable*)var)->setInitializer((ConstantInt*)backend_load_int(type, node->lhs->value));
+    Value* val;
+    if (node->lhs->type == NODE_ARRAY) {
+      arr_t* arr = (arr_t*)node->lhs->data;
+      val = backend_gen_const_arr(type, arr->expr_list);
+    } else {
+      val = backend_load_int(type, node->lhs->value);
+    }
+    ((GlobalVariable*)var)->setInitializer((Constant*)val);
     return;
   }
   if (var_node->type->is_arr) {

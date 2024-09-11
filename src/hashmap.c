@@ -77,6 +77,14 @@ void hashmap_import(hashmap_t* to, hashmap_t* from) {
   for (uint64_t i = 0; i < from->size; i++) {
     if (from->table[i].entries == NULL || from->table[i].collisions == 0) continue;
     for (uint64_t j = 0; j < from->table[i].collisions; j++) {
+      uint64_t hash = hashmap_hash(from->table[i].entries[j].key) % (to->size - 1);
+      if (to->table[hash].collisions > 0) {
+        for (uint64_t k = 0; k < to->table[hash].collisions; k++) {
+          if (!strcmp(to->table[hash].entries[k].key, from->table[i].entries[j].key)) {
+            continue; // Skip over, we already have this on the hashmap
+          }
+        }
+      }
       hashmap_add(to, from->table[i].entries[j].key, from->table[i].entries[j].data);
     }
   }

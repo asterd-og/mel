@@ -41,3 +41,6 @@ comp:
 
 compAsm:
 	llc out.ll -o test.s
+
+install:
+	sudo cp out/mel /usr/bin

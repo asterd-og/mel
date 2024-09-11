@@ -8,6 +8,7 @@
 
 #define NEW_TYPE(ty, _name, nlen, _size, _alignment, signed_)\
   ty = (basetype_t*)malloc(sizeof(basetype_t));\
+  ty->_struct = false;\
   ty->size = _size;\
   ty->alignment = _alignment;\
   ty->_signed = signed_;\

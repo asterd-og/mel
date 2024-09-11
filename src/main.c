@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
   parser_t* parser = parser_create(lexer);
   parser_parse(parser);
 
-  char* cg_name;
+  char* cg_name = "out.ll";
   char* obj_name;
 
 #ifdef DEBUG

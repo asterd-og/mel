@@ -1,5 +1,7 @@
 TODO:
 
+IMPORTANT: Make hashmaps able to resize when theres not enough space left.
+
 Float numbers
 
 Implement sizeof
@@ -21,6 +23,11 @@ Assertions
 
 ========================
 Code Gen TODO:
+
+Importing files with declarations of functions on the current file, will give undefined
+symbols.
+
+Fix global array declarations
 
 Structure initialisation (maybe)
 

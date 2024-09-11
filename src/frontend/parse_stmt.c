@@ -208,7 +208,7 @@ node_t* parse_var_decl(parser_t* parser, bool param, bool struc_member) {
     parser_consume(parser);
     node_t* lhs = parse_expr(parser, type);
     node->lhs = lhs;
-    if (node->lhs->type != NODE_INT && node->lhs->type != NODE_STR && parser->scope->glob_scope) {
+    if (node->lhs->type != NODE_INT && node->lhs->type != NODE_ARRAY && node->lhs->type != NODE_STR && parser->scope->glob_scope) {
       parser_error(parser, "Trying to initialise a global variable with non-constant expression.");
       return NULL;
     }

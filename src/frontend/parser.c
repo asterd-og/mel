@@ -327,8 +327,9 @@ node_t* parse_stmt(parser_t* parser) {
 void parse_import(parser_t* parser) {
   token_t* name_tok = parser_eat(parser, TOK_STRING);
   char* name = parse_str(name_tok);
-  char* path = dirname(parser->lexer->filename);
-  char* temp = malloc(name_tok->text_len + 1 + strlen(path));
+  char* lname = strdup(parser->lexer->filename);
+  char* path = dirname(lname);
+  char* temp = malloc(name_tok->text_len + 2 + strlen(path));
   strcpy(temp, path);
   strcat(temp, "/");
   strcat(temp, name);
@@ -343,6 +344,7 @@ void parse_import(parser_t* parser) {
 
   parser_t* import = parser_create(lexer);
   parser_parse(import);
+
   free(name);
 
   list_import(parser->ast, import->ast);
@@ -368,7 +370,7 @@ void parser_parse(parser_t* parser) {
   glob_scope->parent = NULL;
   parser->glb_obj = hashmap_create(50, 10);
   parser->scope = glob_scope;
-  while (((token_t*)(parser->lexer_iterator->next->data))->type != TOK_EOF) {
+  while (((token_t*)(parser->lexer_iterator->data))->type != TOK_EOF) {
     node_t* node;
     switch (parser->token->type) {
       case TOK_IMPORT:
@@ -387,6 +389,7 @@ void parser_parse(parser_t* parser) {
       case TOK_STRUCT:
         parse_struct_decl(parser);
         break;
+      case TOK_RBRAC:
       case TOK_EOF:
         goto exit;
         break;
