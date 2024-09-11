@@ -155,7 +155,7 @@ Type* backend_get_var_type(Value* var) {
 }
 
 Value* backend_gen_dif(Value* val, Type* val_type, Type* expected_type, bool sign) {
-  if (!backend_get_var_type(val)->isIntegerTy() || expected_type == nullptr || val_type == expected_type) {
+  if (expected_type == nullptr || val_type == expected_type) {
     return val;
   }
   if (!expected_type->isIntegerTy() || !val_type->isIntegerTy()) {
@@ -293,7 +293,7 @@ Value* backend_gen_aop(int node_type, bool _signed, Value* lhs, Value* expr) {
 std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
   Value *lhs, *rhs;
   Value* val;
-  if (node->lhs && node->type != NODE_STRUCT_ACC && node->type != NODE_AT && node->type != NODE_REF) {
+  if (node->lhs && node->type != NODE_FN_CALL && node->type != NODE_STRUCT_ACC && node->type != NODE_AT && node->type != NODE_REF) {
     auto expr = backend_gen_iexpr(ty, node->lhs);
     lhs = std::get<1>(expr);
     if (ty == nullptr) {
@@ -522,19 +522,21 @@ Value* backend_gen_fn_call(node_t* node) {
   std::vector<Value*> args;
   char* name = parse_str(fn_call_node->name);
   Function* fn = fn_map[std::string(name)];
-  free(name);
   auto param_iterator = fn->arg_begin();
   int size = 0;
-  for (list_item_t* item = fn_call_node->arguments->head->next; item != fn_call_node->arguments->head;
-    item = item->next) {
-    Type* ty = nullptr;
-    if (size < fn->arg_size()) {
-      Value* val = &*param_iterator++;
-      ty = val->getType();
+  if (fn_call_node->arguments->size > 0) {
+    for (list_item_t* item = fn_call_node->arguments->head->next; item != fn_call_node->arguments->head;
+      item = item->next) {
+      Type* ty = nullptr;
+      if (size < fn->arg_size()) {
+        Value* val = &*param_iterator++;
+        ty = val->getType();
+      }
+      size++;
+      args.push_back(backend_gen_expr(ty, (node_t*)item->data));
     }
-    size++;
-    args.push_back(backend_gen_expr(ty, (node_t*)item->data));
   }
+  free(name);
   auto* call = builder.CreateCall(fn, args);
   auto *result = call;
   return result;

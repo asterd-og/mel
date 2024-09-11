@@ -258,16 +258,18 @@ node_t* parse_factor(parser_t* parser, type_t* type) {
         type = obj->type;
       }
       if (obj->type->type->size == 0) {
-        parser_error(parser, "Function returns void.");
+        parser_error(parser, "Object has type void.");
         return NULL;
       }
       parser_type_check(parser, type, obj->type);
       token_t* peek = parser_peek(parser);
       if (peek->type == TOK_LPAR) {
         node = parse_fn_call(parser, false);
+        node->lhs = NULL; node->rhs = NULL;
         break;
       } else if (peek->type == TOK_LSQBR) {
         node = parse_arr_idx(parser);
+        node->lhs = NULL; node->rhs = NULL;
         break;
       }
       if (obj->func) {
@@ -281,6 +283,7 @@ node_t* parse_factor(parser_t* parser, type_t* type) {
     case TOK_NOT:
       parser_consume(parser);
       node = NEW_DATA(node_t);
+      memset(node, 0, sizeof(node_t));
       node->type = NODE_NOT;
       node->tok = parser->token;
       node->lhs = parse_factor(parser, type);
@@ -288,6 +291,7 @@ node_t* parse_factor(parser_t* parser, type_t* type) {
     case TOK_EXCL:
       parser_consume(parser);
       node = NEW_DATA(node_t);
+      memset(node, 0, sizeof(node_t));
       node->type = NODE_EXCL;
       node->tok = parser->token;
       node->lhs = parse_factor(parser, type);
@@ -295,6 +299,7 @@ node_t* parse_factor(parser_t* parser, type_t* type) {
     case TOK_MINUS:
       parser_consume(parser);
       node = NEW_DATA(node_t);
+      memset(node, 0, sizeof(node_t));
       node->type = NODE_NEG;
       node->tok = parser->token;
       node->lhs = parse_factor(parser, type);
@@ -303,6 +308,7 @@ node_t* parse_factor(parser_t* parser, type_t* type) {
       parser_consume(parser);
       node_t* expr = parse_expression(parser, NULL);
       node = NEW_DATA(node_t);
+      memset(node, 0, sizeof(node_t));
       node->type = NODE_AT;
       node->lhs = expr;
       parser_rewind(parser);
@@ -317,6 +323,7 @@ node_t* parse_factor(parser_t* parser, type_t* type) {
       break;
     case TOK_STRING:
       node = NEW_DATA(node_t);
+      memset(node, 0, sizeof(node_t));
       node->type = NODE_STR;
       node->tok = tok;
       break;

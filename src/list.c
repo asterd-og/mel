@@ -4,8 +4,11 @@
 
 list_t* list_create() {
   list_t* l = (list_t*)malloc(sizeof(list_t));
+  memset(l, 0, sizeof(list_t));
   l->head = (list_item_t*)malloc(sizeof(list_item_t));
-  l->head->next = l->head->prev = l->head;
+  memset(l->head, 0, sizeof(list_item_t));
+  l->head->next = l->head;
+  l->head->prev = l->head;
   l->iterator = l->head;
   l->size = 0;
   return l;

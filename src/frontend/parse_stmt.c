@@ -30,6 +30,7 @@ node_t* parse_arr_idx(parser_t* parser) {
     list_add(idx_list, expr);
   }
   node_t* node = NEW_DATA(node_t);
+  node->lhs = NULL; node->rhs = NULL;
   node->type = NODE_ARR_IDX;
   node->tok = name;
   node->data = idx_list;
@@ -107,6 +108,7 @@ node_t* parse_id(parser_t* parser) {
     node = parse_struct_acc(parser, obj->type);
   } else {
     node = NEW_DATA(node_t);
+    node->lhs = NULL; node->rhs = NULL;
     node->type = NODE_ID;
     node->tok = name;
     parser_consume(parser);
@@ -142,6 +144,7 @@ acc:
       return NULL;
     }
     node->lhs = parse_struct_acc(parser, ty);
+    node->rhs = NULL;
     return node;
   } else if (parser->token->type == TOK_LSQBR) {
     parser_rewind(parser);

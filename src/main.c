@@ -53,8 +53,11 @@ int main(int argc, char** argv) {
 #ifndef DEBUG
   char* command = (char*)malloc(128);
   sprintf(command, "llc -filetype=obj %s -o %s -opaque-pointers", cg_name, argv[2]);
-  system(command);
+  int status = system(command);
   remove(cg_name);
+  if (status != 0) {
+    return status;
+  }
 #endif
 
   lexer_destroy(lexer);
