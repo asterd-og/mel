@@ -12,6 +12,7 @@ node_t* parse_add_expr(parser_t* parser) {
     token_t* op_tok = parser->token;
     switch (op_tok->type) {
       case TOK_PLUS:
+        if (parser_current_ty && parser_current_ty->is_pointer) parser_current_ty = parser_current_ty->pointer;
         parser_consume(parser);
         rhs = parse_term(parser);
         temp = NEW_DATA(node_t);
@@ -29,6 +30,7 @@ node_t* parse_add_expr(parser_t* parser) {
         lhs = temp;
         break;
       case TOK_MINUS:
+        if (parser_current_ty && parser_current_ty->is_pointer) parser_current_ty = parser_current_ty->pointer;
         parser_consume(parser);
         rhs = parse_term(parser);
         temp = NEW_DATA(node_t);
@@ -299,6 +301,7 @@ node_t* parse_factor(parser_t* parser) {
       token_t* peek = parser_peek(parser);
       if (peek->type == TOK_LPAR) {
         node = parse_fn_call(parser, false);
+        parser_current_ty = obj->type;
         node->lhs = NULL; node->rhs = NULL;
         break;
       } else if (peek->type == TOK_LSQBR) {
