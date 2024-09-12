@@ -62,11 +62,11 @@ node_t* parse_if(parser_t* parser);
 node_t* parse_for(parser_t* parser);
 node_t* parse_while(parser_t* parser);
 
-node_t* parse_add_expr(parser_t* parser, type_t* type);
-node_t* parse_shift_expr(parser_t* parser, type_t* type);
-node_t* parse_bitwise_expr(parser_t* parser, type_t* type);
-node_t* parse_term(parser_t* parser, type_t* type);
-node_t* parse_factor(parser_t* parser, type_t* type);
+node_t* parse_add_expr(parser_t* parser);
+node_t* parse_shift_expr(parser_t* parser);
+node_t* parse_bitwise_expr(parser_t* parser);
+node_t* parse_term(parser_t* parser);
+node_t* parse_factor(parser_t* parser);
 node_t* parse_expression(parser_t* parser, type_t* type);
 
 node_t* parse_simple_expr(parser_t* parser);

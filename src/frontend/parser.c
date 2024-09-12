@@ -174,8 +174,14 @@ void parser_type_check(parser_t* parser, type_t* ty1, type_t* ty2) {
       parser_error(parser, "Trying to pass 2+D array into double (or more) pointer.");
     }
   }
-  if (ty1->type != ty2->type) {
-    parser_warn(parser, "Type-mismatch between type '%s' and '%s'.", ty1->type->name, ty2->type->name);
+  if (ty1->is_pointer && ty2->is_pointer) {
+    if (ty1->type->size != ty2->type->size) {
+      parser_warn(parser, "Size-mismatch between pointers of '%s' and '%s'.", ty1->type->name, ty2->type->name);
+    }
+  } else {
+    if (ty1->type != ty2->type) {
+      parser_warn(parser, "Type-mismatch between type '%s' and '%s'.", ty1->type->name, ty2->type->name);
+    }
   }
 }
 
@@ -326,19 +332,28 @@ node_t* parse_stmt(parser_t* parser) {
 
 void parse_import(parser_t* parser) {
   token_t* name_tok = parser_eat(parser, TOK_STRING);
-  char* name = parse_str(name_tok);
+  char* fname = parse_str(name_tok);
   char* lname = strdup(parser->lexer->filename);
   char* path = dirname(lname);
   char* temp = malloc(name_tok->text_len + 2 + strlen(path));
   strcpy(temp, path);
   strcat(temp, "/");
-  strcat(temp, name);
-  free(name);
-  name = temp;
+  strcat(temp, fname);
+  char* name = temp;
   char* file = open_file(name); // TODO: Look for it firstly in the /usr/mel/include, then on current path
   if (!file) {
-    parser_error(parser, "Couldn't open file '%s'.", name);
+    free(temp);
+    temp = malloc(name_tok->text_len + 2 + strlen("/usr/mel/include/"));
+    strcpy(temp, "/usr/mel/include/");
+    strcat(temp, fname);
+    name = temp;
+    printf("%s\n", temp);
+    file = open_file(name);
+    if (!file) {
+      parser_error(parser, "Couldn't open file '%s'.", fname);
+    }
   }
+  free(fname);
   lexer_t* lexer = lexer_create(file, name);
   lexer_lex(lexer);
 

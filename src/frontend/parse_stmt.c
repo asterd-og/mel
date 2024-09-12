@@ -215,6 +215,10 @@ node_t* parse_var_decl(parser_t* parser, bool param, bool struc_member) {
       parser_error(parser, "Trying to initialise a global variable with non-constant expression.");
       return NULL;
     }
+    if (node->lhs->type == NODE_INT && type->is_pointer) {
+      parser_error(parser, "Cannot assign an integer to pointer.");
+      return NULL;
+    }
   }
   if (param) {
     if (next->type != TOK_COMMA && next->type != TOK_RPAR && next->type != TOK_EQ) {
@@ -521,14 +525,14 @@ node_t* parse_for(parser_t* parser) {
   custom_step = true;
   parser_consume(parser);
   parser_expect(parser, TOK_RPAR);
-  parser_eat(parser, TOK_LBRAC);
+  parser_consume(parser);
   node_t* node = NEW_DATA(node_t);
   node->type = NODE_FOR;
   node->lhs = cond;
   for_stmt_t* stmt = NEW_DATA(for_stmt_t);
   stmt->custom_step = custom_step; stmt->primary_stmt = primary_stmt;
   stmt->step = step;
-  stmt->body = parse_compound_stmt(parser);
+  stmt->body = parse_stmt(parser);
   node->data = stmt;
   return node;
 }
@@ -538,16 +542,9 @@ node_t* parse_while(parser_t* parser) {
   parser_consume(parser); // Advance to the next token
   node_t* cond = parse_condition(parser);
   parser_expect(parser, TOK_RPAR);
-  token_t* open = parser_consume(parser);
-  node_t* stmt;
-  bool initialised = false;
-  if (open->type == TOK_LBRAC) {
-    initialised = true;
-    stmt = parse_stmt(parser);
-  } else {
-    parser_expect(parser, TOK_SEMI);
-    parser_consume(parser);
-  }
+  parser_consume(parser);
+  node_t* stmt = parse_stmt(parser);
+  bool initialised = true;
   node_t* node = NEW_DATA(node_t);
   while_stmt_t* wstmt = NEW_DATA(while_stmt_t);
   node->type = NODE_WHILE;

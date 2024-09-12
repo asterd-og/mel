@@ -233,12 +233,22 @@ Value* backend_gen_aop(int node_type, bool _signed, Value* lhs, Value* expr) {
   switch (node_type) {
     case NODE_ASADD:
     case NODE_ADD:
-      ret = builder.CreateAdd(lhs, expr);
+      if (lhs->getType()->isPointerTy()) {
+        ret = builder.CreateGEP(lhs->getType()->getPointerElementType(), lhs, expr);
+      } else {
+        ret = builder.CreateAdd(lhs, expr);
+      }
       break;
     case NODE_ASSUB:
-    case NODE_SUB:
-      ret = builder.CreateSub(lhs, expr);
+    case NODE_SUB: {
+      if (lhs->getType()->isPointerTy()) {
+        Value* sub = builder.CreateSub(ConstantInt::get(backend_get_var_type(expr), 0), expr);
+        ret = builder.CreateGEP(lhs->getType()->getPointerElementType(), lhs, sub);
+      } else {
+        ret = builder.CreateSub(lhs, expr);
+      }
       break;
+    }
     case NODE_ASMUL:
     case NODE_MUL:
       ret = builder.CreateMul(lhs, expr);
@@ -310,6 +320,7 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
   switch (node->type) {
     case NODE_INT:
       if (ty == nullptr) ty = Type::getInt32Ty(context);
+      if (ty->isPointerTy()) ty = ty->getPointerElementType(); // TODO: Check if this will suffice.
       val = backend_load_int(ty, node->value);
       break;
     case NODE_STR: {

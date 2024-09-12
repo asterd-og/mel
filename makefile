@@ -8,7 +8,7 @@ CFLAGS=$(shell $(LLVM_CONFIG) --cflags) -fPIC -g
 LDFLAGS=$(shell $(LLVM_CONFIG) --ldflags)
 LIBS=$(shell $(LLVM_CONFIG) --libs core irreader)
 
-SOURCES := $(shell find . -name "*.c" -o -name "*.cpp")
+SOURCES := $(shell find ./src/ -name "*.c" -o -name "*.cpp")
 
 # Replace .c and .cpp extensions with .o for object files
 OBJECTS := $(SOURCES:.c=.o)
@@ -45,4 +45,8 @@ compAsm:
 	llc out.ll -o test.s
 
 install:
+	sudo mkdir -p /usr/mel/include
+	sudo mkdir -p /usr/mel/lib
+	sudo cp lib/*.mh /usr/mel/include
+	sudo cp lib/lib.o /usr/mel/lib
 	sudo cp out/mel /usr/bin

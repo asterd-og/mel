@@ -1,17 +1,19 @@
 #include "parser.h"
 #include <string.h>
 
+type_t* parser_current_ty = NULL;
+
 // Add_Expression = Term, { ("+" | "-"), Term }
-node_t* parse_add_expr(parser_t* parser, type_t* type) {
+node_t* parse_add_expr(parser_t* parser) {
   node_t* temp;
-  node_t* lhs = parse_term(parser, type);
+  node_t* lhs = parse_term(parser);
   node_t* rhs = NULL;
   while (true) {
     token_t* op_tok = parser->token;
     switch (op_tok->type) {
       case TOK_PLUS:
         parser_consume(parser);
-        rhs = parse_term(parser, type);
+        rhs = parse_term(parser);
         temp = NEW_DATA(node_t);
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
@@ -28,7 +30,7 @@ node_t* parse_add_expr(parser_t* parser, type_t* type) {
         break;
       case TOK_MINUS:
         parser_consume(parser);
-        rhs = parse_term(parser, type);
+        rhs = parse_term(parser);
         temp = NEW_DATA(node_t);
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
@@ -52,18 +54,22 @@ node_t* parse_add_expr(parser_t* parser, type_t* type) {
 }
 
 // Shift_Expression = Add_Expression, { ("<<" | ">>"), Add_Expression }
-node_t* parse_shift_expr(parser_t* parser, type_t* type) {
+node_t* parse_shift_expr(parser_t* parser) {
   node_t* temp;
-  node_t* lhs = parse_add_expr(parser, type);
+  node_t* lhs = parse_add_expr(parser);
   node_t* rhs = NULL;
   while (true) {
     token_t* op_tok = parser->token;
     switch (op_tok->type) {
       case TOK_LT:
         if (parser_peek(parser)->type != TOK_LT) return lhs;
+        if (parser_current_ty && parser_current_ty->is_pointer) {
+          parser_error(parser, "Trying to do illegal pointer arithmetic operation.");
+          return NULL;
+        }
         parser_eat(parser, TOK_LT);
         parser_consume(parser);
-        rhs = parse_add_expr(parser, type);
+        rhs = parse_add_expr(parser);
         temp = NEW_DATA(node_t);
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
@@ -81,9 +87,13 @@ node_t* parse_shift_expr(parser_t* parser, type_t* type) {
         break;
       case TOK_GT:
         if (parser_peek(parser)->type != TOK_GT) return lhs;
+        if (parser_current_ty && parser_current_ty->is_pointer) {
+          parser_error(parser, "Trying to do illegal pointer arithmetic operation.");
+          return NULL;
+        }
         parser_eat(parser, TOK_GT);
         parser_consume(parser);
-        rhs = parse_add_expr(parser, type);
+        rhs = parse_add_expr(parser);
         temp = NEW_DATA(node_t);
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
@@ -108,16 +118,20 @@ node_t* parse_shift_expr(parser_t* parser, type_t* type) {
 }
 
 // Shift_Expression, { ("|" | "^" | "&"), Shift_Expression }
-node_t* parse_bitwise_expr(parser_t* parser, type_t* type) {
+node_t* parse_bitwise_expr(parser_t* parser) {
   node_t* temp;
-  node_t* lhs = parse_shift_expr(parser, type);
+  node_t* lhs = parse_shift_expr(parser);
   node_t* rhs = NULL;
   while (true) {
     token_t* op_tok = parser->token;
     switch (op_tok->type) {
       case TOK_PIPE:
+        if (parser_current_ty && parser_current_ty->is_pointer) {
+          parser_error(parser, "Trying to do illegal pointer arithmetic operation.");
+          return NULL;
+        }
         parser_consume(parser);
-        rhs = parse_shift_expr(parser, type);
+        rhs = parse_shift_expr(parser);
         temp = NEW_DATA(node_t);
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
@@ -134,8 +148,12 @@ node_t* parse_bitwise_expr(parser_t* parser, type_t* type) {
         lhs = temp;
         break;
       case TOK_HAT:
+        if (parser_current_ty && parser_current_ty->is_pointer) {
+          parser_error(parser, "Trying to do illegal pointer arithmetic operation.");
+          return NULL;
+        }
         parser_consume(parser);
-        rhs = parse_shift_expr(parser, type);
+        rhs = parse_shift_expr(parser);
         temp = NEW_DATA(node_t);
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
@@ -152,8 +170,12 @@ node_t* parse_bitwise_expr(parser_t* parser, type_t* type) {
         lhs = temp;
         break;
       case TOK_AMPER:
+        if (parser_current_ty && parser_current_ty->is_pointer) {
+          parser_error(parser, "Trying to do illegal pointer arithmetic operation.");
+          return NULL;
+        }
         parser_consume(parser);
-        rhs = parse_shift_expr(parser, type);
+        rhs = parse_shift_expr(parser);
         temp = NEW_DATA(node_t);
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
@@ -178,16 +200,20 @@ node_t* parse_bitwise_expr(parser_t* parser, type_t* type) {
 }
 
 // Term = Factor, { ("*" | "/"), Factor }
-node_t* parse_term(parser_t* parser, type_t* type) {
+node_t* parse_term(parser_t* parser) {
   node_t* temp;
-  node_t* lhs = parse_factor(parser, type);
+  node_t* lhs = parse_factor(parser);
   node_t* rhs;
   while (true) {
     token_t* op_tok = parser_consume(parser);
     switch (op_tok->type) {
       case TOK_STAR:
+        if (parser_current_ty && parser_current_ty->is_pointer) {
+          parser_error(parser, "Trying to do illegal pointer arithmetic operation.");
+          return NULL;
+        }
         parser_consume(parser);
-        rhs = parse_factor(parser, type);
+        rhs = parse_factor(parser);
         temp = NEW_DATA(node_t);
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
@@ -204,8 +230,12 @@ node_t* parse_term(parser_t* parser, type_t* type) {
         lhs = temp;
         break;
       case TOK_DIV:
+        if (parser_current_ty && parser_current_ty->is_pointer) {
+          parser_error(parser, "Trying to do illegal pointer arithmetic operation.");
+          return NULL;
+        }
         parser_consume(parser);
-        rhs = parse_factor(parser, type);
+        rhs = parse_factor(parser);
         temp = NEW_DATA(node_t);
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
@@ -222,8 +252,12 @@ node_t* parse_term(parser_t* parser, type_t* type) {
         lhs = temp;
         break;
       case TOK_MOD:
+        if (parser_current_ty && parser_current_ty->is_pointer) {
+          parser_error(parser, "Trying to do illegal pointer arithmetic operation.");
+          return NULL;
+        }
         parser_consume(parser);
-        rhs = parse_factor(parser, type);
+        rhs = parse_factor(parser);
         temp = NEW_DATA(node_t);
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
@@ -248,20 +282,20 @@ node_t* parse_term(parser_t* parser, type_t* type) {
 }
 
 // Factor = Int | ID | "(", Expression, ")"
-node_t* parse_factor(parser_t* parser, type_t* type) {
+node_t* parse_factor(parser_t* parser) {
   token_t* tok = parser->token;
   node_t* node;
   switch (tok->type) {
     case TOK_ID: {
       object_t* obj = parser_find_obj(parser, parse_str(tok));
-      if (type == NULL) {
-        type = obj->type;
+      if (parser_current_ty == NULL) {
+        parser_current_ty = obj->type;
       }
       if (obj->type->type->size == 0) {
         parser_error(parser, "Object has type void.");
         return NULL;
       }
-      parser_type_check(parser, type, obj->type);
+      parser_type_check(parser, obj->type, parser_current_ty);
       token_t* peek = parser_peek(parser);
       if (peek->type == TOK_LPAR) {
         node = parse_fn_call(parser, false);
@@ -286,7 +320,7 @@ node_t* parse_factor(parser_t* parser, type_t* type) {
       memset(node, 0, sizeof(node_t));
       node->type = NODE_NOT;
       node->tok = parser->token;
-      node->lhs = parse_factor(parser, type);
+      node->lhs = parse_factor(parser);
       break;
     case TOK_EXCL:
       parser_consume(parser);
@@ -294,7 +328,7 @@ node_t* parse_factor(parser_t* parser, type_t* type) {
       memset(node, 0, sizeof(node_t));
       node->type = NODE_EXCL;
       node->tok = parser->token;
-      node->lhs = parse_factor(parser, type);
+      node->lhs = parse_factor(parser);
       break;
     case TOK_MINUS:
       parser_consume(parser);
@@ -302,11 +336,11 @@ node_t* parse_factor(parser_t* parser, type_t* type) {
       memset(node, 0, sizeof(node_t));
       node->type = NODE_NEG;
       node->tok = parser->token;
-      node->lhs = parse_factor(parser, type);
+      node->lhs = parse_factor(parser);
       break;
     case TOK_AT: {
       parser_consume(parser);
-      node_t* expr = parse_expression(parser, NULL);
+      node_t* expr = parse_bitwise_expr(parser);
       node = NEW_DATA(node_t);
       memset(node, 0, sizeof(node_t));
       node->type = NODE_AT;
@@ -329,7 +363,7 @@ node_t* parse_factor(parser_t* parser, type_t* type) {
       break;
     case TOK_LPAR:
       parser_consume(parser);
-      node = parse_expression(parser, type);
+      node = parse_expression(parser, NULL);
       if (parser->token->type != TOK_RPAR) {
         parser_error(parser, "Unexpected token. Expected ')' but got '%.*s'.", parser->token->text_len, parser->token->text);
         return NULL;
@@ -344,8 +378,9 @@ node_t* parse_factor(parser_t* parser, type_t* type) {
 }
 
 // Expression = Bitwise_Expression
-node_t* parse_expression(parser_t* parser, type_t* type) {
-  return parse_bitwise_expr(parser, type);
+node_t* parse_expression(parser_t* parser, type_t* ty) {
+  parser_current_ty = ty;
+  return parse_bitwise_expr(parser);
 }
 
 // lvalue, { ("+"), Factor }
@@ -354,12 +389,13 @@ node_t* parse_simple_expr(parser_t* parser) {
   node_t* temp;
   node_t* lhs = parse_lvalue(parser);
   node_t* rhs;
+  parser_current_ty = NULL;
   while (true) {
     token_t* op_tok = parser->token;
     switch (op_tok->type) {
       case TOK_PLUS:
         parser_consume(parser);
-        rhs = parse_term(parser, NULL);
+        rhs = parse_term(parser);
         temp = NEW_DATA(node_t);
         temp->type = NODE_ADD;
         temp->lhs = lhs; temp->rhs = rhs;
@@ -368,7 +404,7 @@ node_t* parse_simple_expr(parser_t* parser) {
         break;
       case TOK_MINUS:
         parser_consume(parser);
-        rhs = parse_term(parser, NULL);
+        rhs = parse_term(parser);
         temp = NEW_DATA(node_t);
         temp->type = NODE_SUB;
         temp->lhs = lhs; temp->rhs = rhs;
@@ -386,16 +422,16 @@ node_t* parse_simple_expr(parser_t* parser) {
   return NULL;
 }
 
-node_t* parse_expr(parser_t* parser, type_t* type) {
+node_t* parse_expr(parser_t* parser, type_t* ty) {
   if (parser->token->type == TOK_LSQBR) {
-    if (type->is_pointer) {
+    if (ty && ty->is_pointer) {
       parser_error(parser, "Trying to initialise a pointer with an array.");
       return NULL;
     }
     parser_consume(parser);
-    return parse_array(parser, type);
+    return parse_array(parser, ty);
   } else if (parser->token->type == TOK_AMPER) {
-    return parse_ref(parser, type);
+    return parse_ref(parser, ty);
   }
-  return parse_expression(parser, type);
+  return parse_expression(parser, ty);
 }

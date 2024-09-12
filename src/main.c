@@ -44,16 +44,24 @@ int main(int argc, char** argv) {
 #else
   srand(time(NULL));
   cg_name = (char*)malloc(11); // 6 random digits (dot) ll
+  obj_name = (char*)malloc(11); // 6 random digits (dot) o
   uint32_t num = rand() % 999999;
   sprintf(cg_name, "%d.ll", num);
+  sprintf(obj_name, "%d.o", num);
 #endif
   backend_gen(parser->ast, cg_name);
 
 #ifndef DEBUG
-  char* command = (char*)malloc(128);
-  sprintf(command, "llc -filetype=obj %s -o %s -opaque-pointers", cg_name, argv[2]);
+  char* command = (char*)malloc(256);
+  sprintf(command, "llc -filetype=obj %s -o %s -opaque-pointers", cg_name, obj_name);
   int status = system(command);
   remove(cg_name);
+  if (status != 0) {
+    return status;
+  }
+  sprintf(command, "ld.lld %s /usr/mel/lib/lib.o -r -o %s", obj_name, argv[2]);
+  status = system(command);
+  remove(obj_name);
   if (status != 0) {
     return status;
   }

@@ -1,12 +1,12 @@
 import "lib.mh";
 import "testHeader.mh";
+import "cast.mh";
 
 fn main(): int {
-  if (1 == 2) {
-    printFmt("WOW!\n");
-  }
-  else {
-    printFmt("Ho!\n");
-  }
+  var ptr: *u64 = allocMem(32);
+  @ptr = 10;
+  @ptr + 1 = 12;
+  @ptr + 2 = 14;
+  printFmt("%lx\n", ToU64(ptr));
   ret 0;
 }
