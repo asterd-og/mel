@@ -1,4 +1,1 @@
-fn func(): int;
-fn func1(): int;
-fn func2(): int;
-fn func3(): int;
+fn add(var x: int, var y: int): int;

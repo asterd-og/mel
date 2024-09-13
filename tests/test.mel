@@ -1,12 +1,17 @@
-import "lib.mh";
-import "testHeader.mh";
 import "cast.mh";
+import "lib.mh";
+
+struct st {
+  var b: int;
+}
+
+struct test {
+  var a: st[10];
+}
 
 fn main(): int {
-  var ptr: *u64 = allocMem(32);
-  @ptr = 10;
-  @ptr + 1 = 12;
-  @ptr + 2 = 14;
-  printFmt("%lx\n", ToU64(ptr));
+  var arr: test[10];
+  arr[0].a[3].b = 9;
+  printFmt("%d\n", arr[0].a[3].b);
   ret 0;
 }

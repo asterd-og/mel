@@ -33,6 +33,7 @@ Value* backend_gen_expr(Type* ty, node_t* node);
 std::tuple<Type*,Value*> backend_gen_struct_acc(node_t* node);
 std::tuple<Type*,Value*> backend_gen_deref(node_t* node);
 std::tuple<Type*,Value*> backend_gen_ref(node_t* node);
+std::tuple<Type*,Value*> backend_gen_internal_lvalue(node_t* lvalue, Value* val, Type* ty);
 
 Type* backend_get_ptr_arr_mod(type_t* ty, Type* bt) {
   if (ty->is_pointer) {
@@ -303,14 +304,16 @@ Value* backend_gen_aop(int node_type, bool _signed, Value* lhs, Value* expr) {
 std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
   Value *lhs, *rhs;
   Value* val;
-  if (node->lhs && node->type != NODE_FN_CALL && node->type != NODE_STRUCT_ACC && node->type != NODE_AT && node->type != NODE_REF) {
+  if (node->lhs && node->type != NODE_FN_CALL &&
+      node->type != NODE_STRUCT_ACC && node->type != NODE_AT &&
+      node->type != NODE_REF) {
     auto expr = backend_gen_iexpr(ty, node->lhs);
     lhs = std::get<1>(expr);
     if (ty == nullptr) {
       ty = std::get<0>(expr);
     }
   }
-  if (node->rhs) {
+  if (node->rhs && node->type != NODE_STRUCT_ACC) {
     auto expr = backend_gen_iexpr(ty, node->rhs);
     rhs = std::get<1>(expr);
     if (ty == nullptr) {
@@ -567,36 +570,62 @@ std::tuple<var_t*, int> backend_get_struct_member_idx(type_t* struc, token_t* me
   return {var, i};
 }
 
-std::tuple<Type*,Value*> backend_gen_struct_acc(node_t* node) {
-  char* name = parse_str(node->tok);
-  Value* val = var_map[std::string(name)];
-  current_ty = var_types[std::string(name)];
-  free(name);
-  node_t* temp = node;
-  Type* ty = backend_get_var_type(val);
-  if (ty->isPointerTy()) {
-    val = builder.CreateLoad(ty, val);
-    ty = ty->getPointerElementType();
-  }
-  while (temp->lhs) {
-    temp = temp->lhs;
-    auto member = backend_get_struct_member_idx(current_ty, temp->tok);
-    int access = std::get<1>(member);
-    val = builder.CreateGEP(ty, val, { builder.getInt32(0), builder.getInt32(access) });
-    current_ty = std::get<0>(member)->type;
-    ty = backend_get_llvm_type(std::get<0>(member)->type);
-    if (temp->type == NODE_ARR_IDX) {
-      auto gep = backend_arr_gep(ty, temp, val);
-      val = std::get<1>(gep);
-      ty = std::get<0>(gep);
-    } else {
-      if (ty->isPointerTy() && temp->lhs) {
-        val = builder.CreateLoad(ty, val);
-        ty = ty->getPointerElementType();
+std::tuple<Type*,Value*> backend_gen_internal_struct_acc(node_t* node, Value* val, Type* ty) {
+  auto lhs = backend_gen_internal_lvalue(node->lhs, val, ty);
+  auto rhs = backend_gen_internal_lvalue(node->rhs, std::get<1>(lhs), std::get<0>(lhs));
+  return rhs;
+}
+
+std::tuple<Type*,Value*> backend_gen_internal_lvalue(node_t* lvalue, Value* val, Type* ty) {
+  switch (lvalue->type) {
+    case NODE_ID: {
+      if (val == nullptr) {
+        char* pname = parse_str(lvalue->tok);
+        Value* ret = var_map[std::string(pname)];
+        current_ty = var_types[std::string(pname)];
+        free(pname);
+        return {backend_get_llvm_type(current_ty), ret};
+      } else {
+        auto member = backend_get_struct_member_idx(current_ty, lvalue->tok);
+        int access = std::get<1>(member);
+        Value* ret = builder.CreateGEP(ty, val, { builder.getInt32(0), builder.getInt32(access) });
+        return {backend_get_llvm_type(std::get<0>(member)->type), ret};
       }
+      break;
     }
+    case NODE_ARR_IDX: {
+      Value* var;
+      Type* arr_ty = ty;
+      if (val == nullptr) {
+        char* str = parse_str(lvalue->tok);
+        var = var_map.find(std::string(str))->second;
+        current_ty = var_types[std::string(str)];
+        arr_ty = backend_get_llvm_type(current_ty);
+        free(str);
+      } else {
+        var = val;
+        auto member = backend_get_struct_member_idx(current_ty, lvalue->tok);
+        int access = std::get<1>(member);
+        arr_ty = backend_get_llvm_type(std::get<0>(member)->type);
+        var = builder.CreateGEP(ty, val, { builder.getInt32(0), builder.getInt32(access) });
+      }
+      auto ret = backend_arr_gep(arr_ty, lvalue, var);
+      return ret;
+      break;
+    }
+    case NODE_STRUCT_ACC:
+      return backend_gen_internal_struct_acc(lvalue, val, ty);
+      break;
   }
-  return {ty, val};
+  outs()<<"Unhandled internal LValue.\n";
+  return {};
+}
+
+
+std::tuple<Type*,Value*> backend_gen_struct_acc(node_t* node) {
+  auto lhs = backend_gen_internal_lvalue(node->lhs, nullptr, nullptr);
+  auto rhs = backend_gen_internal_lvalue(node->rhs, std::get<1>(lhs), std::get<0>(lhs));
+  return rhs;
 }
 
 std::tuple<Type*,Value*> backend_gen_deref(node_t* node) {
@@ -966,7 +995,7 @@ void backend_gen_stmt(node_t* node) {
   }
 }
 
-extern "C" void backend_gen(list_t* ast, char* out) {
+extern "C" void backend_gen(list_t* ast, bool print_ir, char* out) {
   for (list_item_t* item = ast->head->next; item != ast->head; item = item->next) {
     backend_gen_stmt((node_t*)item->data);
   }
@@ -974,6 +1003,10 @@ extern "C" void backend_gen(list_t* ast, char* out) {
   std::string buffer;
   raw_string_ostream stream(buffer);
   module.print(stream, nullptr);
+
+  if (print_ir) {
+    outs()<<buffer<<"\n";
+  }
 
   std::ofstream ll(out);
   ll << stream.str() << std::endl;

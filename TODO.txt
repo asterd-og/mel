@@ -16,7 +16,9 @@ Static and const objects.
 Chars
 
 For the future:
-Implement casting!
+Implement casting! And decide it's syntax
+between "<Type>val" "[Type]Val" "Val as Type" or "(Type)Val"
+
 switch statements
 refactor probably
 Assertions
@@ -24,18 +26,9 @@ Assertions
 ========================
 Code Gen TODO:
 
-Importing files with declarations of functions on the current file, will give undefined
-symbols.
-
-Fix global array declarations
-
 Structure initialisation (maybe)
 
 referencing & dereferencing to each other (not my priority rn)
 
 ========================
 Lib TODO:
-
-IMPORTANT:
-Add HolyC-like casting (toU64(), toU32(), toPtr())
-And error the user if he tries to do ptr / i64...

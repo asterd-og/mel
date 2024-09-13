@@ -304,10 +304,6 @@ node_t* parse_factor(parser_t* parser) {
         parser_current_ty = obj->type;
         node->lhs = NULL; node->rhs = NULL;
         break;
-      } else if (peek->type == TOK_LSQBR) {
-        node = parse_arr_idx(parser);
-        node->lhs = NULL; node->rhs = NULL;
-        break;
       }
       if (obj->func) {
         parser_error(parser, "'%s' is a function, not a variable.", obj->name);

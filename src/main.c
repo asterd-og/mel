@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
   sprintf(cg_name, "%d.ll", num);
   sprintf(obj_name, "%d.o", num);
 #endif
-  backend_gen(parser->ast, cg_name);
+  backend_gen(parser->ast, false, cg_name);
 
 #ifndef DEBUG
   char* command = (char*)malloc(256);
@@ -59,7 +59,7 @@ int main(int argc, char** argv) {
   if (status != 0) {
     return status;
   }
-  sprintf(command, "ld.lld %s /usr/mel/lib/lib.o -r -o %s", obj_name, argv[2]);
+  sprintf(command, "ld.lld %s /usr/mel/lib/lib.a -r -o %s", obj_name, argv[2]);
   status = system(command);
   remove(obj_name);
   if (status != 0) {

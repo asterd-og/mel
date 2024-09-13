@@ -6,24 +6,21 @@
 
 // TODO: Break this code into other files (not all functions here are directly related to statements)
 
-node_t* parse_arr_idx(parser_t* parser) {
+node_t* parse_internal_arr_idx(parser_t* parser, type_t* type) {
   token_t* name = parser->token;
-  // FIXME: v~~~~~ Fix this for arrays inside of structure type.
-  /*object_t* obj = parser_find_obj(parser, parse_str(name));
-  if (!obj->type->is_arr && !obj->type->is_pointer) {
+  if (!type->is_arr && !type->is_pointer) {
     parser_error(parser, "Invalid indexing of non-array object.");
     return NULL;
-  }*/
+  }
   list_t* idx_list = list_create();
   int count = 0;
   while (parser_peek(parser)->type == TOK_LSQBR) {
     count++;
     parser_eat(parser, TOK_LSQBR);
-    // FIXME: What if its a double pointer ?! or pointer to array ?!?!?!?
-    /*if (count > obj->type->dimensions) {
+    if (count > type->dimensions) {
       parser_error(parser, "Trying to access inexistent dimension.");
       return NULL;
-    }*/
+    }
     parser_consume(parser);
     node_t* expr = parse_expression(parser, NULL);
     parser_expect(parser, TOK_RSQBR);
@@ -35,6 +32,16 @@ node_t* parse_arr_idx(parser_t* parser) {
   node->tok = name;
   node->data = idx_list;
   return node;
+}
+
+node_t* parse_arr_idx(parser_t* parser) {
+  token_t* name = parser->token;
+  object_t* obj = parser_find_obj(parser, parse_str(name));
+  if (!obj->type->is_arr && !obj->type->is_pointer) {
+    parser_error(parser, "Invalid indexing of non-array object.");
+    return NULL;
+  }
+  return parse_internal_arr_idx(parser, obj->type);
 }
 
 // Returns a node (array) with list of expressions
@@ -106,6 +113,12 @@ node_t* parse_id(parser_t* parser) {
       return NULL;
     }
     node = parse_struct_acc(parser, obj->type);
+  } else if (parser_peek(parser)->type == TOK_LSQBR && obj->type->type->_struct &&
+    (obj->type->is_arr || obj->type->is_pointer)) {
+    node = parse_struct_acc(parser, obj->type);
+  } else if (parser_peek(parser)->type == TOK_LSQBR) {
+    node = parse_arr_idx(parser);
+    parser_consume(parser);
   } else {
     node = NEW_DATA(node_t);
     node->lhs = NULL; node->rhs = NULL;
@@ -118,12 +131,22 @@ node_t* parse_id(parser_t* parser) {
 
 node_t* parse_struct_acc(parser_t* parser, type_t* type) {
   // Gotta end in =
-  node_t* node = NEW_DATA(node_t);
-  node->type = NODE_STRUCT_ACC;
-  node->tok = parser->token;
+  node_t* lhs;
+  if (parser_peek(parser)->type != TOK_LSQBR) {
+    lhs = NEW_DATA(node_t);
+    lhs->lhs = NULL; lhs->rhs = NULL;
+    lhs->type = NODE_ID;
+    lhs->tok = parser->token;
+    parser_consume(parser);
+  } else {
+    lhs = parse_internal_arr_idx(parser, type);
+    parser_consume(parser);
+  }
   // Find object in members of type
-  if (parser_consume(parser)->type == TOK_DOT) {
-acc:
+  if (parser->token->type == TOK_DOT) {
+    node_t* node = NEW_DATA(node_t);
+    node->type = NODE_STRUCT_ACC;
+    node->lhs = lhs; node->rhs = NULL;
     if (!type->type->_struct) {
       parser_error(parser, "Trying to access member of non-struct type.");
       return NULL;
@@ -143,17 +166,10 @@ acc:
       parser_error(parser, "No member '%.*s' found in structure %s.", parser->token->text_len, parser->token->text, type->type->name);
       return NULL;
     }
-    node->lhs = parse_struct_acc(parser, ty);
-    node->rhs = NULL;
+    node->rhs = parse_struct_acc(parser, ty);
     return node;
-  } else if (parser->token->type == TOK_LSQBR) {
-    parser_rewind(parser);
-    node = parse_arr_idx(parser);
-    if (parser_consume(parser)->type == TOK_DOT) {
-      goto acc;
-    }
   }
-  return node;
+  return lhs;
 }
 
 // ID | array_index | @expr
@@ -174,22 +190,7 @@ node_t* parse_lvalue(parser_t* parser) {
     node->lhs = expr;
     return node;
   }
-  object_t* obj = parser_find_obj(parser, parse_str(name));
-  if (obj->type->is_arr || obj->type->is_pointer) {
-    // TODO: Check for -> if its pointer (maybe)
-    if (parser_peek(parser)->type != TOK_LSQBR) {
-      if (obj->type->is_pointer) goto els;
-      parser_error(parser, "lvalue is an array (needs to be indexed).");
-      return NULL;
-    }
-    node = parse_arr_idx(parser);
-    parser_consume(parser);
-    return node;
-  } else {
-els:
-    node = parse_id(parser);
-    return node;
-  }
+  return parse_id(parser);
 }
 
 node_t* parse_var_decl(parser_t* parser, bool param, bool struc_member) {

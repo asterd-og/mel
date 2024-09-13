@@ -51,23 +51,9 @@ void term_view(node_t* node) {
       expr_view(node->lhs);
       break;
     case NODE_STRUCT_ACC:
-      printf("%.*s", node->tok->text_len, node->tok->text);
-      node_t* temp = node;
-      while (temp->lhs) {
-        printf(".");
-        temp = temp->lhs;
-        if (temp->type == NODE_STRUCT_ACC) {
-          printf("%.*s", temp->tok->text_len, temp->tok->text);
-        } else {
-          printf("%.*s", temp->tok->text_len, temp->tok->text);
-          list_t* expr_list = (list_t*)temp->data;
-          for (list_item_t* expr = expr_list->head->next; expr != expr_list->head; expr = expr->next) {
-            printf("[");
-            expr_view((node_t*)expr->data);
-            printf("]");
-          }
-        }
-      }
+      term_view(node->lhs);
+      printf(".");
+      term_view(node->rhs);
       break;
     case NODE_FN_CALL:
       fn_call_view(node, false);
@@ -84,6 +70,10 @@ void expr_view(node_t* node) {
     return;
   }
   node_t* lhs = (node->type == NODE_AT || node->type == NODE_NEG || node->type == NODE_EXCL || node->type == NODE_NOT ||  node->type == NODE_REF || node->type == NODE_STRUCT_ACC ? node : node->lhs);
+  if (lhs->type == NODE_STRUCT_ACC) {
+    term_view(node);
+    return;
+  }
   static char* table[] = {"+", "-", "*", "/", "%", "<<", ">>", "&", "|", "^"};
   printf("(");
   term_view(lhs);

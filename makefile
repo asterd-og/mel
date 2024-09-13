@@ -48,5 +48,5 @@ install:
 	sudo mkdir -p /usr/mel/include
 	sudo mkdir -p /usr/mel/lib
 	sudo cp lib/*.mh /usr/mel/include
-	sudo cp lib/lib.o /usr/mel/lib
+	sudo cp lib/lib.a /usr/mel/lib
 	sudo cp out/mel /usr/bin

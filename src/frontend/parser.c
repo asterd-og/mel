@@ -248,7 +248,7 @@ type_t* parser_get_type(parser_t* parser) {
     }
     type_t* temp;
     type_t* point_to = type;
-    int count = 0;
+    int count = ptr_cnt;
     do {
       count++;
       point_to->is_arr = true;
@@ -276,7 +276,7 @@ type_t* parser_get_type(parser_t* parser) {
     type->dimensions = count; type->is_pointer = is_ptr; type->ptr_cnt = ptr_cnt;
     return type;
   }
-  type->is_pointer = is_ptr; type->ptr_cnt = ptr_cnt;
+  type->is_pointer = is_ptr; type->dimensions = type->ptr_cnt = ptr_cnt;
   return type;
 }
 
@@ -347,7 +347,6 @@ void parse_import(parser_t* parser) {
     strcpy(temp, "/usr/mel/include/");
     strcat(temp, fname);
     name = temp;
-    printf("%s\n", temp);
     file = open_file(name);
     if (!file) {
       parser_error(parser, "Couldn't open file '%s'.", fname);
