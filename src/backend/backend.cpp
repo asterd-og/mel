@@ -35,6 +35,10 @@ std::tuple<Type*,Value*> backend_gen_deref(node_t* node);
 std::tuple<Type*,Value*> backend_gen_ref(node_t* node);
 std::tuple<Type*,Value*> backend_gen_internal_lvalue(node_t* lvalue, Value* val, Type* ty);
 
+int backend_get_type_alignment(type_t* ty) {
+  return (ty->alignment >= 0 ? ty->alignment : ty->type->alignment);
+}
+
 Type* backend_get_ptr_arr_mod(type_t* ty, Type* bt) {
   if (ty->is_pointer) {
     Type* temp_ty = bt;
@@ -493,10 +497,16 @@ void backend_gen_var_def(node_t* node) {
   Value* var;
   if (current_fn != nullptr) {
     var = builder.CreateAlloca(type, nullptr, name);
+    ((AllocaInst*)var)->setAlignment(Align(backend_get_type_alignment(var_node->type)));
   } else {
     auto glob = (&module)->getOrInsertGlobal(name, type);
     var = glob;
-    ((GlobalVariable*)var)->setDSOLocal(true);
+    if (var_node->external) {
+      ((GlobalVariable*)var)->setExternallyInitialized(true);
+    } else {
+      ((GlobalVariable*)var)->setDSOLocal(true);
+    }
+    ((GlobalVariable*)var)->setAlignment(Align(backend_get_type_alignment(var_node->type)));
     ((GlobalVariable*)var)->setInitializer((ConstantInt*)backend_load_int(type, 0));
   }
   var_map[std::string(name)] = var;

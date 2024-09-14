@@ -10,6 +10,7 @@
 #include "type_checker.h"
 
 #define NEW_DATA(type) (type*)malloc(sizeof(type))
+#define POWEROF2(x) (!(x & (x - 1)) && x)
 
 typedef struct {
   lexer_t* lexer;

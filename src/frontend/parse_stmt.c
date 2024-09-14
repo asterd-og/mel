@@ -194,16 +194,49 @@ node_t* parse_lvalue(parser_t* parser) {
 }
 
 node_t* parse_var_decl(parser_t* parser, bool param, bool struc_member) {
+  int alignment = -1;
+  bool external = false;
+  if (parser_peek(parser)->type == TOK_LSQBR) {
+    parser_consume(parser);
+    token_t* modifier = parser_consume(parser);
+    if (modifier->type != TOK_ALIGN && modifier->type != TOK_EXTERN) {
+      parser_error(parser, "Invalid modifier.");
+      return NULL;
+    }
+    if (modifier->type == TOK_ALIGN) {
+      parser_consume(parser);
+      node_t* alignment_node = parse_factor(parser);
+      if (alignment_node->type != NODE_INT) {
+        parser_error(parser, "Alignment value should be a constant integer.");
+        return NULL;
+      }
+      if (!POWEROF2(alignment_node->value)) {
+        parser_error(parser, "Alignment not a power of two.");
+        return NULL;
+      }
+      alignment = alignment_node->value;
+      parser_eat(parser, TOK_RSQBR);
+    } else {
+      if (!parser->scope->glob_scope) {
+        parser_error(parser, "Cannot create external objects inside scopes.");
+        return NULL;
+      }
+      parser_eat(parser, TOK_RSQBR);
+      external = true;
+    }
+  }
   token_t* name = parser_consume(parser);
   parser_eat(parser, TOK_COLON);
   type_t* type = parser_get_type(parser);
   if (type->type->size == 0 && !type->is_pointer) {
-    parser_error(parser, "You can't create a variable of type void.\n");
+    parser_error(parser, "You can't create a variable of type void.");
     return NULL;
   }
+  type->alignment = alignment;
   token_t* next = parser_consume(parser);
   node_t* node = NEW_DATA(node_t);
   var_t* var = NEW_DATA(var_t);
+  var->external = external;
   if (next->type == TOK_EQ) {
     if (param || struc_member) {
       parser_error(parser, "Cannot initialise variable in a parameter/member.");

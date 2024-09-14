@@ -225,7 +225,7 @@ type_t* parser_get_type(parser_t* parser) {
         first_tok->text_len, first_tok->text);
       break;
   }
-  if (!bt) {
+  if (bt == NULL) {
     parser_error(parser, "Unknown type '%.*s'.", type_tok->text_len, type_tok->text);
     return NULL;
   }

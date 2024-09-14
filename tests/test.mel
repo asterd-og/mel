@@ -1,17 +1,8 @@
 import "cast.mh";
 import "lib.mh";
 
-struct st {
-  var b: int;
-}
-
-struct test {
-  var a: st[10];
-}
+var [extern] x: u64 = 10;
 
 fn main(): int {
-  var arr: test[10];
-  arr[0].a[3].b = 9;
-  printFmt("%d\n", arr[0].a[3].b);
   ret 0;
 }

@@ -75,6 +75,7 @@ typedef struct type_t {
   int ptr_cnt; // single ptr, double ptr, etc...
   bool is_arr;
   bool _signed;
+  int alignment;
   int dimensions; // Array dimensions
   node_t* arr_size; // Array size (var arr: int[4] = ...) would be 4
   struct type_t* pointer;
@@ -103,7 +104,7 @@ typedef struct scope_t {
 typedef struct {
   type_t* type;
   token_t* name;
-  int alignment;
+  bool external;
   bool _const;
   bool _static;
   bool initialised;

@@ -62,6 +62,8 @@ enum {
   TOK_UNSIGNED,
   TOK_IMPORT,
   TOK_STRUCT,
+  TOK_ALIGN,
+  TOK_EXTERN,
 };
 
 typedef struct {

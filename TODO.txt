@@ -2,6 +2,8 @@ TODO:
 
 IMPORTANT: Make hashmaps able to resize when theres not enough space left.
 
+Implement Align for types (not only variables)
+
 Float numbers
 
 Implement sizeof
