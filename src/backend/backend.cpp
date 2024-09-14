@@ -500,20 +500,19 @@ void backend_gen_var_def(node_t* node) {
     auto glob = (&module)->getOrInsertGlobal(name, type);
     var = glob;
     if (var_node->external) {
-      ((GlobalVariable*)var)->setExternallyInitialized(true);
+      ((GlobalVariable*)var)->setLinkage(GlobalVariable::ExternalLinkage);
     } else {
       ((GlobalVariable*)var)->setDSOLocal(true);
     }
     if (alignment > 0)
       ((GlobalVariable*)var)->setAlignment(Align(alignment));
-    ((GlobalVariable*)var)->setInitializer((ConstantInt*)backend_load_int(type, 0));
   }
   var_map[std::string(name)] = var;
   var_types[std::string(name)] = var_node->type;
   current_ty = var_node->type;
   free(name);
   if (!var_node->initialised) {
-    if (isa<GlobalVariable>(var)) {
+    if (isa<GlobalVariable>(var) && !var_node->external) {
       ((GlobalVariable*)var)->setInitializer(ConstantAggregateZero::get(type));
     }
     return;
