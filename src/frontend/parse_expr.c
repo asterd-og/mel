@@ -423,7 +423,7 @@ node_t* parse_simple_expr(parser_t* parser) {
 
 node_t* parse_expr(parser_t* parser, type_t* ty) {
   if (parser->token->type == TOK_LSQBR) {
-    if (ty && ty->is_pointer) {
+    if (ty && ty->is_pointer && !ty->is_arr) {
       parser_error(parser, "Trying to initialise a pointer with an array.");
       return NULL;
     }

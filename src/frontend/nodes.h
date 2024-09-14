@@ -64,6 +64,7 @@ typedef struct node_t {
 typedef struct {
   bool _struct;
   bool _signed;
+  bool packed;
   int size; // in bytes
   int alignment;
   char* name;

@@ -64,6 +64,7 @@ enum {
   TOK_STRUCT,
   TOK_ALIGN,
   TOK_EXTERN,
+  TOK_PACKED,
 };
 
 typedef struct {

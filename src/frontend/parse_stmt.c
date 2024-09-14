@@ -590,8 +590,16 @@ node_t* parse_while(parser_t* parser) {
 }
 
 void parse_struct_decl(parser_t* parser) {
+  bool packed = false;
+  if (parser_peek(parser)->type == TOK_LSQBR) {
+    parser_consume(parser);
+    parser_eat(parser, TOK_PACKED);
+    parser_eat(parser, TOK_RSQBR);
+    packed = true;
+  }
   token_t* name = parser_eat(parser, TOK_ID);
   basetype_t* type = (basetype_t*)NEW_DATA(basetype_t);
+  type->packed = packed;
   type_checker_add(parser->tychk, name, type);
 
   type->_struct = true;

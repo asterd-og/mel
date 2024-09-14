@@ -55,6 +55,7 @@ const char* type_to_str[] = {
   "TOK_STRUCT",
   "TOK_ALIGN",
   "TOK_EXTERN",
+  "TOK_PACKED",
 };
 
 const uint8_t singlechars[] = {
@@ -113,8 +114,8 @@ void lexer_error(lexer_t* l, const char* fmt, ...) {
 
 void lexer_prepare_hashmaps(lexer_t* l) {
   l->kw_hm = hashmap_create(30, 5);
-  char* kw_list[] = {"if", "else", "while", "for", "fn", "var", "ret", "signed", "unsigned", "import", "struct", "align", "extern"};
-  for (int i = 0; i < 13; i++) {
+  char* kw_list[] = {"if", "else", "while", "for", "fn", "var", "ret", "signed", "unsigned", "import", "struct", "align", "extern", "packed"};
+  for (int i = 0; i < 14; i++) {
     hashmap_add(l->kw_hm, kw_list[i], (void*)(TOK_IF + i));
   }
 }

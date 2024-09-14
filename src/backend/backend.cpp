@@ -23,7 +23,9 @@ BasicBlock* current_block;
 bool should_br = true; // should put a br instruction at the end of conditional statement blocks?
 std::map<std::string, Function*> fn_map;
 std::map<std::string, Value*> var_map;
+std::map<std::string, Value*> glb_var_map;
 std::map<std::string, type_t*> var_types;
+std::map<std::string, type_t*> glb_var_types;
 std::map<std::string, Type*> type_map; // structs, etc...
 
 void backend_gen_stmt(node_t* node);
@@ -34,6 +36,20 @@ std::tuple<Type*,Value*> backend_gen_struct_acc(node_t* node);
 std::tuple<Type*,Value*> backend_gen_deref(node_t* node);
 std::tuple<Type*,Value*> backend_gen_ref(node_t* node);
 std::tuple<Type*,Value*> backend_gen_internal_lvalue(node_t* lvalue, Value* val, Type* ty);
+
+Value* backend_get_var(std::string name) {
+  if (var_map.find(name) == var_map.end()) {
+    return glb_var_map.find(name)->second;
+  }
+  return var_map.find(name)->second;
+}
+
+type_t* backend_get_parser_var_type(std::string name) {
+  if (var_types.find(name) == var_types.end()) {
+    return glb_var_types.find(name)->second;
+  }
+  return var_types.find(name)->second;
+}
 
 Type* backend_get_ptr_arr_mod(type_t* ty, Type* bt) {
   if (ty->is_pointer) {
@@ -57,15 +73,15 @@ Type* backend_get_ptr_arr_mod(type_t* ty, Type* bt) {
 
 Type* backend_gen_struct(type_t* ty) {
   std::vector<Type *> fields;
-  auto* type = StructType::create(context, "struct." + std::string(ty->type->name));
   for (list_item_t* item = ty->type->members->head->next; item != ty->type->members->head; item = item->next) {
     var_t* var = (var_t*)item->data;
     if (var->type->type == ty->type) {
-      fields.push_back(backend_get_ptr_arr_mod(var->type, type));
+      fields.push_back(backend_get_ptr_arr_mod(var->type, PointerType::get(context, 0)));
     } else {
       fields.push_back(backend_get_llvm_type(var->type));
     }
   }
+  auto* type = StructType::create(fields, "struct." + std::string(ty->type->name), ty->type->packed);
   type->setBody(fields);
   type_map[ty->type->name] = type;
   return type;
@@ -174,8 +190,19 @@ Value* backend_gen_const_arr(Type* ty, list_t* items) {
   int i = 0;
   for (list_item_t* item = items->head->next; item != items->head; item = item->next) {
     node_t* node = (node_t*)item->data;
-    values[i] = ConstantInt::get(ty->getArrayElementType(), node->value);
+    if (node->type == NODE_STR) {
+      char* str = parse_str(node->tok);
+      values[i] = (ConstantExpr*)backend_load_str(PointerType::get(context, 0), str, node->tok->text_len + 1);
+      free(str);
+    } else {
+      values[i] = ConstantInt::get(ty->getArrayElementType(), node->value);
+    }
     i++;
+  }
+  if (i < ty->getArrayNumElements()) {
+    for (i; i < ty->getArrayNumElements(); i++) {
+      values[i] = ConstantAggregateZero::get(ty->getArrayElementType());
+    }
   }
   auto init = ConstantArray::get(ArrayType::get(ty->getArrayElementType(), values.size()),
                                  values);
@@ -342,11 +369,11 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
     }
     case NODE_ID: {
       char* str = parse_str(node->tok);
-      Value* var = var_map.find(std::string(str))->second;
+      Value* var = backend_get_var(str);
       Type* first_ty = ty;
       ty = backend_get_var_type(var);
       if (current_ty == nullptr) {
-        current_ty = var_types[std::string(str)];
+        current_ty = backend_get_parser_var_type(str);
       }
       free(str);
       if (backend_get_var_type(var)->isArrayTy()) {
@@ -363,8 +390,8 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       break;
     case NODE_ARR_IDX: {
       char* str = parse_str(node->tok);
-      Value* var = var_map.find(std::string(str))->second;
-      current_ty = var_types[std::string(str)];
+      Value* var = backend_get_var(str);
+      current_ty = backend_get_parser_var_type(str);
       auto arr = backend_arr_idx(ty, node, var, false, nullptr);
       val = std::get<1>(arr);
       ty = std::get<0>(arr);
@@ -445,6 +472,7 @@ void backend_gen_fn_def(node_t* node) {
   }
   free(name);
   if (!fn_node->initialised) return;
+  var_map.clear();
   fn_ret = false;
   current_fn = fn;
   BasicBlock* entry = BasicBlock::Create(context, "entry", fn);
@@ -507,8 +535,13 @@ void backend_gen_var_def(node_t* node) {
     if (alignment > 0)
       ((GlobalVariable*)var)->setAlignment(Align(alignment));
   }
-  var_map[std::string(name)] = var;
-  var_types[std::string(name)] = var_node->type;
+  if (current_fn != nullptr) {
+    var_map[std::string(name)] = var;
+    var_types[std::string(name)] = var_node->type;
+  } else {
+    glb_var_map[std::string(name)] = var;
+    glb_var_types[std::string(name)] = var_node->type;
+  }
   current_ty = var_node->type;
   free(name);
   if (!var_node->initialised) {
@@ -589,8 +622,8 @@ std::tuple<Type*,Value*> backend_gen_internal_lvalue(node_t* lvalue, Value* val,
     case NODE_ID: {
       if (val == nullptr) {
         char* pname = parse_str(lvalue->tok);
-        Value* ret = var_map[std::string(pname)];
-        current_ty = var_types[std::string(pname)];
+        Value* ret = backend_get_var(pname);
+        current_ty = backend_get_parser_var_type(pname);
         free(pname);
         return {backend_get_llvm_type(current_ty), ret};
       } else {
@@ -610,8 +643,8 @@ std::tuple<Type*,Value*> backend_gen_internal_lvalue(node_t* lvalue, Value* val,
       Type* arr_ty = ty;
       if (val == nullptr) {
         char* str = parse_str(lvalue->tok);
-        var = var_map.find(std::string(str))->second;
-        current_ty = var_types[std::string(str)];
+        var = backend_get_var(str);
+        current_ty = backend_get_parser_var_type(str);
         arr_ty = backend_get_llvm_type(current_ty);
         free(str);
       } else {
@@ -641,6 +674,9 @@ std::tuple<Type*,Value*> backend_gen_internal_lvalue(node_t* lvalue, Value* val,
 std::tuple<Type*,Value*> backend_gen_struct_acc(node_t* node) {
   auto lhs = backend_gen_internal_lvalue(node->lhs, nullptr, nullptr);
   auto rhs = backend_gen_internal_lvalue(node->rhs, std::get<1>(lhs), std::get<0>(lhs));
+  char* pname = parse_str(node->lhs->tok);
+  current_ty = backend_get_parser_var_type(pname);
+  free(pname);
   return rhs;
 }
 
@@ -661,7 +697,7 @@ std::tuple<Type*,Value*> backend_gen_deref(node_t* node) {
     ty = ty->getPointerElementType();
   } else if (node->lhs->type == NODE_ARR_IDX) {
     char* name = parse_str(node->lhs->tok);
-    Value* var = var_map[name];
+    Value* var = backend_get_var(name);
     auto arr_idx = backend_arr_gep(backend_get_var_type(var), node->lhs, var);
     val = std::get<1>(arr_idx);
     ty = std::get<0>(arr_idx);
@@ -669,7 +705,7 @@ std::tuple<Type*,Value*> backend_gen_deref(node_t* node) {
   } else {
     node_t* var_node = node->lhs->lhs;
     char* name = parse_str(var_node->tok);
-    Value* var = var_map[name];
+    Value* var = backend_get_var(name);
     ty = backend_get_llvm_type(var_types[name]);
 
     var = builder.CreateLoad(ty, var);
@@ -695,13 +731,13 @@ std::tuple<Type*,Value*> backend_gen_ref(node_t* node) {
     ty = std::get<0>(struct_acc);
   } else if (node->lhs->type == NODE_ID) {
     char* name = parse_str(node->lhs->tok);
-    var = var_map[name];
+    var = backend_get_var(name);
     free(name);
     val = var;
     ty = var->getType();
   } else if (node->lhs->type == NODE_ARR_IDX) {
     char* name = parse_str(node->lhs->tok);
-    var = var_map[name];
+    var = backend_get_var(name);
     free(name);
     auto arr_idx = backend_arr_gep(backend_get_var_type(var), node->lhs, var);
     val = std::get<1>(arr_idx);
@@ -709,7 +745,7 @@ std::tuple<Type*,Value*> backend_gen_ref(node_t* node) {
   } else {
     node_t* var_node = node->lhs->lhs;
     char* name = parse_str(var_node->tok);
-    Value* var = var_map[name];
+    Value* var = backend_get_var(name);
     ty = backend_get_llvm_type(var_types[name]);
 
     var = builder.CreateLoad(ty, var);
@@ -726,16 +762,16 @@ std::tuple<Type*,Value*> backend_gen_lvalue(node_t* lvalue) {
   switch (lvalue->type) {
     case NODE_ID: {
       char* pname = parse_str(lvalue->tok);
-      Value* val = var_map[std::string(pname)];
-      current_ty = var_types[std::string(pname)];
+      Value* val = backend_get_var(pname);
+      current_ty = backend_get_parser_var_type(pname);
       free(pname);
       return {backend_get_llvm_type(current_ty), val};
       break;
     }
     case NODE_ARR_IDX: {
       char* str = parse_str(lvalue->tok);
-      Value* var = var_map.find(std::string(str))->second;
-      current_ty = var_types[std::string(str)];
+      Value* var = backend_get_var(str);
+      current_ty = backend_get_parser_var_type(str);
       auto val = backend_arr_gep(backend_get_var_type(var), lvalue, var);
       free(str);
       return val;
@@ -769,7 +805,10 @@ void backend_gen_assignment(node_t* node) {
     store = backend_gen_aop(node->type, (current_ty ? current_ty->_signed : false), lhs, expr);
   }
 
-  builder.CreateStore(store, lvalue);
+  StoreInst* st = builder.CreateStore(store, lvalue);
+  if (current_ty->type->packed) {
+    st->setAlignment(Align(1));
+  }
 }
 
 void backend_gen_ret(node_t* node) {
