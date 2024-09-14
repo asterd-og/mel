@@ -53,15 +53,9 @@ int main(int argc, char** argv) {
 
 #ifndef DEBUG
   char* command = (char*)malloc(256);
-  sprintf(command, "llc -filetype=obj %s -o %s -opaque-pointers", cg_name, obj_name);
+  sprintf(command, "llc --code-model=medium -filetype=obj %s -o %s -opaque-pointers", cg_name, argv[2]);
   int status = system(command);
   remove(cg_name);
-  if (status != 0) {
-    return status;
-  }
-  sprintf(command, "ld.lld %s /usr/mel/lib/lib.a -r -o %s", obj_name, argv[2]);
-  status = system(command);
-  remove(obj_name);
   if (status != 0) {
     return status;
   }
