@@ -35,10 +35,6 @@ std::tuple<Type*,Value*> backend_gen_deref(node_t* node);
 std::tuple<Type*,Value*> backend_gen_ref(node_t* node);
 std::tuple<Type*,Value*> backend_gen_internal_lvalue(node_t* lvalue, Value* val, Type* ty);
 
-int backend_get_type_alignment(type_t* ty) {
-  return (ty->alignment >= 0 ? ty->alignment : ty->type->alignment);
-}
-
 Type* backend_get_ptr_arr_mod(type_t* ty, Type* bt) {
   if (ty->is_pointer) {
     Type* temp_ty = bt;
@@ -326,7 +322,7 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
   }
   switch (node->type) {
     case NODE_INT:
-      if (ty == nullptr) ty = Type::getInt32Ty(context);
+      if (ty == nullptr) ty = Type::getInt64Ty(context);
       if (ty->isPointerTy()) ty = ty->getPointerElementType(); // TODO: Check if this will suffice.
       val = backend_load_int(ty, node->value);
       break;
@@ -338,7 +334,7 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       break;
     }
     case NODE_EXCL: {
-      if (ty == nullptr) ty = Type::getInt32Ty(context);
+      if (ty == nullptr) ty = Type::getInt64Ty(context);
       Value *zero = backend_load_int(ty, 0);
       val = builder.CreateICmpEQ(lhs, zero);
       ty = builder.getIntNTy(1);
@@ -495,9 +491,11 @@ void backend_gen_var_def(node_t* node) {
   Type* type = backend_get_llvm_type(var_node->type);
   char* name = parse_str(var_node->name);
   Value* var;
+  int alignment = var_node->type->alignment;
   if (current_fn != nullptr) {
     var = builder.CreateAlloca(type, nullptr, name);
-    ((AllocaInst*)var)->setAlignment(Align(backend_get_type_alignment(var_node->type)));
+    if (alignment > 0)
+      ((AllocaInst*)var)->setAlignment(Align(alignment));
   } else {
     auto glob = (&module)->getOrInsertGlobal(name, type);
     var = glob;
@@ -506,7 +504,8 @@ void backend_gen_var_def(node_t* node) {
     } else {
       ((GlobalVariable*)var)->setDSOLocal(true);
     }
-    ((GlobalVariable*)var)->setAlignment(Align(backend_get_type_alignment(var_node->type)));
+    if (alignment > 0)
+      ((GlobalVariable*)var)->setAlignment(Align(alignment));
     ((GlobalVariable*)var)->setInitializer((ConstantInt*)backend_load_int(type, 0));
   }
   var_map[std::string(name)] = var;
@@ -598,6 +597,10 @@ std::tuple<Type*,Value*> backend_gen_internal_lvalue(node_t* lvalue, Value* val,
       } else {
         auto member = backend_get_struct_member_idx(current_ty, lvalue->tok);
         int access = std::get<1>(member);
+        if (ty->isPointerTy()) {
+          val = builder.CreateLoad(ty, val);
+          ty = ty->getPointerElementType();
+        }
         Value* ret = builder.CreateGEP(ty, val, { builder.getInt32(0), builder.getInt32(access) });
         return {backend_get_llvm_type(std::get<0>(member)->type), ret};
       }
@@ -617,7 +620,11 @@ std::tuple<Type*,Value*> backend_gen_internal_lvalue(node_t* lvalue, Value* val,
         auto member = backend_get_struct_member_idx(current_ty, lvalue->tok);
         int access = std::get<1>(member);
         arr_ty = backend_get_llvm_type(std::get<0>(member)->type);
-        var = builder.CreateGEP(ty, val, { builder.getInt32(0), builder.getInt32(access) });
+        if (ty->isPointerTy()) {
+          var = builder.CreateLoad(ty, var);
+          ty = ty->getPointerElementType();
+        }
+        var = builder.CreateGEP(ty, var, { builder.getInt32(0), builder.getInt32(access) });
       }
       auto ret = backend_arr_gep(arr_ty, lvalue, var);
       return ret;

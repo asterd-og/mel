@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
   sprintf(cg_name, "%d.ll", num);
   sprintf(obj_name, "%d.o", num);
 #endif
-  backend_gen(parser->ast, false, cg_name);
+  backend_gen(parser->ast, true, cg_name);
 
 #ifndef DEBUG
   char* command = (char*)malloc(256);

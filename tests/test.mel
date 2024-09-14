@@ -1,8 +1,22 @@
 import "cast.mh";
 import "lib.mh";
 
-var [extern] x: u64 = 10;
+struct LimineMMapEntry {
+  var Base: u64;
+  var Len: u64;
+  var Type: u64;
+}
+
+struct LimineMMapResponse {
+  var Rev: u64;
+  var EntryCnt: u64;
+  var Entries: **LimineMMapEntry;
+}
 
 fn main(): int {
+  var Response: *LimineMMapResponse;
+  var Entry: *LimineMMapEntry;
+  Entry = Response.Entries[2];
+  var Test: u64 = Entry.Len;
   ret 0;
 }
