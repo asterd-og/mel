@@ -1,8 +1,6 @@
 TODO:
 
-IMPORTANT: Make hashmaps able to resize when theres not enough space left.
-
-Implement Align for types (not only variables)
+Implement Align for structs (not only variables)
 
 Float numbers
 
@@ -18,9 +16,6 @@ Static and const objects.
 Chars
 
 For the future:
-Implement casting! And decide it's syntax
-between "<Type>val" "[Type]Val" "Val as Type" or "(Type)Val"
-
 switch statements
 refactor probably
 Assertions

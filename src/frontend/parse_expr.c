@@ -290,8 +290,10 @@ node_t* parse_factor(parser_t* parser) {
   switch (tok->type) {
     case TOK_ID: {
       object_t* obj = parser_find_obj(parser, parse_str(tok));
+      bool set_type = false;
       if (parser_current_ty == NULL) {
         parser_current_ty = obj->type;
+        set_type = true;
       }
       if ((parser_peek(parser)->type == TOK_LPAR && obj->type->type->size == 0) ||
           (!obj->func && obj->type->type->size == 0)) {
@@ -308,6 +310,8 @@ node_t* parse_factor(parser_t* parser) {
       }
       if (obj->func) {
         parser_warn(parser, "'%s' is a function, not a variable.", obj->name);
+        if (set_type)
+          parser_current_ty->is_pointer = true;
       }
       node = parse_id(parser);
       parser_rewind(parser);
@@ -378,6 +382,19 @@ node_t* parse_factor(parser_t* parser) {
         return NULL;
       }
       break;
+    case TOK_LT: {
+      type_t* ty = parser_get_type(parser);
+      parser_eat(parser, TOK_GT);
+      parser_consume(parser);
+      node = NEW_DATA(node_t);
+      memset(node, 0, sizeof(node_t));
+      parser_current_ty = NULL;
+      node->lhs = parse_factor(parser);
+      node->data = ty;
+      node->type = NODE_CAST;
+      parser_current_ty = ty;
+      break;
+    }
     default:
       parser_error(parser, "Unexpected factor '%.*s'", tok->text_len, tok->text);
       return NULL;
@@ -442,5 +459,10 @@ node_t* parse_expr(parser_t* parser, type_t* ty) {
   } else if (parser->token->type == TOK_AMPER) {
     return parse_ref(parser, ty);
   }
-  return parse_expression(parser, ty);
+  node_t* node = parse_expression(parser, ty);
+  if (ty && (ty->is_pointer && !parser_current_ty->is_pointer)) {
+    parser_error(parser, "Trying to pass a non-pointer object to pointer. Try casting like '<Type>'.");
+    return NULL;
+  }
+  return node;
 }

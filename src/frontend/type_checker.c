@@ -10,7 +10,7 @@ type_t* ty_u64;
 
 type_checker_t* type_checker_create() {
   type_checker_t* tychk = (type_checker_t*)malloc(sizeof(type_checker_t));
-  tychk->types_hm = hashmap_create(100, 5);
+  tychk->types_hm = hashmap_create(150, 5);
   NEW_TYPE(u8, "u8", 3, 1, 1, false)
   NEW_TYPE(i8, "i8", 3, 1, 1, true)
 

@@ -1,13 +1,9 @@
 import "cast.mh";
 import "lib.mh";
 
-fn Test(): void {
-  printFmt("Hello world!");
-}
-
 fn main(): int {
-  var lol: *u64 = Test;
-  if (lol != 0)
-    printFmt("%lx\n", Test);
+  var test: u32 = 0x59;
+  var lol: u64 = <u64>test;
+  printFmt("%lx\n", lol);
   ret 0;
 }

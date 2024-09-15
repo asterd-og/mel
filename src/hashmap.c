@@ -2,9 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-// TODO: Resize hashmap when needed (aka when it tries to add a hash
-// to an entry with enough collisions)
-
 uint64_t hashmap_hash(const char* key) {
   uint64_t hash = 0xcbf29ce484222325;
   for (int i = 0; i < strlen(key); i++) {
@@ -31,7 +28,11 @@ void hashmap_add(hashmap_t* hm, char* key, void* data) {
     memset(table->entries, 0, sizeof(hm_entry_t) * hm->max_collisions);
     table->collisions = 0;
   }
-  if (table->collisions == hm->max_collisions) return;
+  if (table->collisions == hm->max_collisions) {
+    hashmap_resize(hm, hm->size + 50);
+    hashmap_add(hm, key, data);
+    return;
+  }
   uint64_t idx = table->collisions++;
   table->entries[idx].key = (char*)malloc(strlen(key));
   strcpy(table->entries[idx].key, key);

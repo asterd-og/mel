@@ -382,7 +382,7 @@ void parser_parse(parser_t* parser) {
   scope_t* glob_scope = NEW_DATA(scope_t);
   glob_scope->glob_scope = true;
   glob_scope->parent = NULL;
-  parser->glb_obj = hashmap_create(50, 10);
+  parser->glb_obj = hashmap_create(150, 10);
   parser->scope = glob_scope;
   while (((token_t*)(parser->lexer_iterator->data))->type != TOK_EOF) {
     node_t* node;

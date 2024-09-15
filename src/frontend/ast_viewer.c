@@ -8,6 +8,7 @@ int ident = 0;
 void expr_view(node_t* node);
 void fn_call_view(node_t* node, bool stmt);
 void stmt_view(node_t* node, bool do_ident);
+void type_view(type_t* ty);
 
 void term_view(node_t* node) {
   switch (node->type) {
@@ -55,6 +56,12 @@ void term_view(node_t* node) {
       printf(".");
       term_view(node->rhs);
       break;
+    case NODE_CAST:
+      printf("<");
+      type_view((type_t*)node->data);
+      printf(">");
+      term_view(node->lhs);
+      break;
     case NODE_FN_CALL:
       fn_call_view(node, false);
       break;
@@ -69,7 +76,7 @@ void expr_view(node_t* node) {
     term_view(node);
     return;
   }
-  node_t* lhs = (node->type == NODE_AT || node->type == NODE_NEG || node->type == NODE_EXCL || node->type == NODE_NOT ||  node->type == NODE_REF || node->type == NODE_STRUCT_ACC ? node : node->lhs);
+  node_t* lhs = (node->type == NODE_AT || node->type == NODE_CAST || node->type == NODE_NEG || node->type == NODE_EXCL || node->type == NODE_NOT ||  node->type == NODE_REF || node->type == NODE_STRUCT_ACC ? node : node->lhs);
   if (lhs->type == NODE_STRUCT_ACC) {
     term_view(node);
     return;

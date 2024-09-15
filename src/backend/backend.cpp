@@ -427,6 +427,21 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       ty = std::get<0>(ref);
       break;
     }
+    case NODE_CAST: {
+      type_t* pty = (type_t*)node->data;
+      Type* dty = backend_get_llvm_type((type_t*)node->data);
+      if (pty->is_pointer && (backend_get_var_type(lhs)->isPointerTy())) {
+        val = builder.CreatePointerCast(lhs, dty);
+      } else if (pty->is_pointer) {
+        val = builder.CreateIntToPtr(lhs, dty);
+      } else if (!pty->is_pointer && (backend_get_var_type(lhs)->isPointerTy())) {
+        val = builder.CreatePtrToInt(lhs, dty);
+      } else {
+        val = builder.CreateIntCast(lhs, dty, pty->_signed);
+      }
+      ty = dty;
+      break;
+    }
     default:
       val = backend_gen_aop(node->type, (current_ty ? current_ty->_signed : false), lhs, rhs);
       break;
