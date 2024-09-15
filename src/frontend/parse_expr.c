@@ -460,7 +460,7 @@ node_t* parse_expr(parser_t* parser, type_t* ty) {
     return parse_ref(parser, ty);
   }
   node_t* node = parse_expression(parser, ty);
-  if (ty && (ty->is_pointer && !parser_current_ty->is_pointer)) {
+  if ((ty && parser_current_ty) && (ty->is_pointer && !parser_current_ty->is_pointer)) {
     parser_error(parser, "Trying to pass a non-pointer object to pointer. Try casting like '<Type>'.");
     return NULL;
   }

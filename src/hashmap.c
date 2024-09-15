@@ -21,6 +21,7 @@ hashmap_t* hashmap_create(size_t size, size_t max_collisions) {
 }
 
 void hashmap_add(hashmap_t* hm, char* key, void* data) {
+start: {
   uint64_t hash = hashmap_hash(key) % (hm->size - 1);
   hm_table_t* table = &hm->table[hash];
   if (table->entries == NULL || table->collisions == 0) {
@@ -29,14 +30,14 @@ void hashmap_add(hashmap_t* hm, char* key, void* data) {
     table->collisions = 0;
   }
   if (table->collisions == hm->max_collisions) {
-    hashmap_resize(hm, hm->size + 50);
-    hashmap_add(hm, key, data);
-    return;
+    hashmap_resize(hm, hm->size + 50, hm->max_collisions + 30);
+    goto start;
   }
   uint64_t idx = table->collisions++;
   table->entries[idx].key = (char*)malloc(strlen(key));
   strcpy(table->entries[idx].key, key);
   table->entries[idx].data = data;
+}
 }
 
 void* hashmap_get(hashmap_t* hm, char* key) {
@@ -50,10 +51,11 @@ void* hashmap_get(hashmap_t* hm, char* key) {
   return NULL;
 }
 
-void hashmap_resize(hashmap_t* hm, uint64_t new_size) {
+void hashmap_resize(hashmap_t* hm, uint64_t new_size, uint64_t new_collisions) {
   // Create a new table and re-hash everything into it (and free the old references)
   hm_table_t* new_table = (hm_table_t*)malloc(sizeof(hm_table_t) * new_size);
   memset(new_table, 0, sizeof(hm_table_t) * new_size);
+  hm->max_collisions = new_collisions;
   for (uint64_t i = 0; i < hm->size; i++) {
     if (hm->table[i].entries == NULL || hm->table[i].collisions == 0) continue;
     for (uint64_t j = 0; j < hm->table[i].collisions; j++) {
