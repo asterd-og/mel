@@ -293,7 +293,8 @@ node_t* parse_factor(parser_t* parser) {
       if (parser_current_ty == NULL) {
         parser_current_ty = obj->type;
       }
-      if (obj->type->type->size == 0) {
+      if ((parser_peek(parser)->type == TOK_LPAR && obj->type->type->size == 0) ||
+          (!obj->func && obj->type->type->size == 0)) {
         parser_error(parser, "Object has type void.");
         return NULL;
       }
@@ -306,8 +307,7 @@ node_t* parse_factor(parser_t* parser) {
         break;
       }
       if (obj->func) {
-        parser_error(parser, "'%s' is a function, not a variable.", obj->name);
-        return NULL;
+        parser_warn(parser, "'%s' is a function, not a variable.", obj->name);
       }
       node = parse_id(parser);
       parser_rewind(parser);
@@ -337,6 +337,16 @@ node_t* parse_factor(parser_t* parser) {
       node->tok = parser->token;
       node->lhs = parse_factor(parser);
       break;
+    case TOK_AMPER: {
+      parser_consume(parser);
+      node_t* expr = parse_add_expr(parser);
+      node = NEW_DATA(node_t);
+      memset(node, 0, sizeof(node_t));
+      node->type = NODE_REF;
+      node->lhs = expr;
+      parser_rewind(parser);
+      break;
+    }
     case TOK_AT: {
       parser_consume(parser);
       node_t* expr = parse_bitwise_expr(parser);

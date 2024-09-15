@@ -72,16 +72,17 @@ Type* backend_get_ptr_arr_mod(type_t* ty, Type* bt) {
 }
 
 Type* backend_gen_struct(type_t* ty) {
-  std::vector<Type *> fields;
+  std::vector<Type *> fields = {builder.getInt64Ty()}; // Gotta add something so that it doesnt seg fault.
+  auto* type = StructType::create(fields, "struct." + std::string(ty->type->name), ty->type->packed);
+  fields.clear();
   for (list_item_t* item = ty->type->members->head->next; item != ty->type->members->head; item = item->next) {
     var_t* var = (var_t*)item->data;
     if (var->type->type == ty->type) {
-      fields.push_back(backend_get_ptr_arr_mod(var->type, PointerType::get(context, 0)));
+      fields.push_back(backend_get_ptr_arr_mod(var->type, type));
     } else {
       fields.push_back(backend_get_llvm_type(var->type));
     }
   }
-  auto* type = StructType::create(fields, "struct." + std::string(ty->type->name), ty->type->packed);
   type->setBody(fields);
   type_map[ty->type->name] = type;
   return type;
@@ -120,6 +121,7 @@ Type* backend_get_llvm_type(type_t* ty) {
 }
 
 Value* backend_load_int(Type* ty, int64_t val) {
+  if (ty->isPointerTy()) return ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), val), ty);
   return ConstantInt::get(ty, val);
 }
 
@@ -350,7 +352,6 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
   switch (node->type) {
     case NODE_INT:
       if (ty == nullptr) ty = Type::getInt64Ty(context);
-      if (ty->isPointerTy()) ty = ty->getPointerElementType(); // TODO: Check if this will suffice.
       val = backend_load_int(ty, node->value);
       break;
     case NODE_STR: {
@@ -369,6 +370,12 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
     }
     case NODE_ID: {
       char* str = parse_str(node->tok);
+      if (fn_map.find(str) != fn_map.end()) {
+        val = fn_map.find(str)->second;
+        ty = val->getType();
+        free(str);
+        break;
+      }
       Value* var = backend_get_var(str);
       Type* first_ty = ty;
       ty = backend_get_var_type(var);

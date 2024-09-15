@@ -32,7 +32,7 @@ clean:
 .PHONY: clean
 
 run:
-	./out/mel tests/test.mel test.o
+	./out/mel tests/linkedList.mel test.o
 	clang test.o lib/mlib.a -o test
 	./test
 

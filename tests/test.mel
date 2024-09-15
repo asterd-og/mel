@@ -1,10 +1,13 @@
 import "cast.mh";
 import "lib.mh";
 
-var Test: *char[10] = ["Hello world!", "Arrays with messages"];
+fn Test(): void {
+  printFmt("Hello world!");
+}
 
 fn main(): int {
-  printFmt("%s\n", Test[0]);
-  printFmt("%s\n", Test[1]);
+  var lol: *u64 = Test;
+  if (lol != 0)
+    printFmt("%lx\n", Test);
   ret 0;
 }
