@@ -2,6 +2,7 @@ import "cast.mh";
 import "lib.mh";
 
 fn main(): int {
+  var j: int = 5;
   for (var i: int = 0; i < 10; i += 1) {
     for (var i: int = 0; i < 25; i += 1) {
       printFmt("%d\n", i);

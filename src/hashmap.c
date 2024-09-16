@@ -4,7 +4,7 @@
 
 uint64_t hashmap_hash(const char* key) {
   uint64_t hash = 0xcbf29ce484222325;
-  for (int i = 0; i < strlen(key); i++) {
+  for (size_t i = 0; i < strlen(key); i++) {
     hash *= 0x100000001b3;
     hash ^= (unsigned char)key[i];
   }

@@ -1,9 +1,11 @@
 #include <iostream>
 #include <fstream>
 #include <map>
+#include <stack>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
+#include "backend.hpp"
 extern "C" {
 #include "backend.h"
 #include "../frontend/parser.h"
@@ -25,10 +27,8 @@ BasicBlock* step_block;
 BasicBlock* end_block;
 bool should_br = true; // should put a br instruction at the end of conditional statement blocks?
 std::map<std::string, Function*> fn_map;
-std::map<std::string, Value*> var_map;
-std::map<std::string, Value*> glb_var_map;
-std::map<std::string, type_t*> var_types;
-std::map<std::string, type_t*> glb_var_types;
+BasicBlock* entry_br = nullptr;
+backend_scope_t* current_scope;
 std::map<std::string, Type*> type_map; // structs, etc...
 
 void backend_gen_stmt(node_t* node);
@@ -41,17 +41,42 @@ std::tuple<Type*,Value*> backend_gen_ref(node_t* node);
 std::tuple<Type*,Value*> backend_gen_internal_lvalue(node_t* lvalue, Value* val, Type* ty);
 
 Value* backend_get_var(std::string name) {
-  if (var_map.find(name) == var_map.end()) {
-    return glb_var_map.find(name)->second;
+  backend_scope_t* scope = current_scope;
+  while (true) {
+    if (scope->var_map.find(name) != scope->var_map.end())
+      return scope->var_map.find(name)->second;
+    scope = scope->parent;
+    if (scope == nullptr) break;
   }
-  return var_map.find(name)->second;
+  return nullptr;
 }
 
 type_t* backend_get_parser_var_type(std::string name) {
-  if (var_types.find(name) == var_types.end()) {
-    return glb_var_types.find(name)->second;
+  backend_scope_t* scope = current_scope;
+  while (true) {
+    if (scope->var_types.find(name) != scope->var_types.end())
+      return scope->var_types.find(name)->second;
+    scope = scope->parent;
+    if (scope == nullptr) break;
   }
-  return var_types.find(name)->second;
+  return nullptr;
+}
+
+void backend_new_scope() {
+  backend_scope_t* scope = new backend_scope_t;
+  scope->parent = current_scope;
+  scope->var_map.clear();
+  scope->var_types.clear();
+  current_scope = scope;
+}
+
+void backend_back_scope() {
+  backend_scope_t* scope = current_scope;
+  backend_scope_t* parent = scope->parent;
+  scope->var_map.clear();
+  scope->var_types.clear();
+  delete scope;
+  current_scope = parent;
 }
 
 Type* backend_get_ptr_arr_mod(type_t* ty, Type* bt) {
@@ -155,7 +180,7 @@ std::string unescape_string(const std::string& input) {
 Value* backend_load_str(Type* ty, char* str, int len) {
   std::vector<llvm::Constant *> chars(len);
   std::string treated_str = unescape_string(str);
-  for(unsigned int i = 0; i < len; i++) {
+  for(int i = 0; i < len; i++) {
     chars[i] = ConstantInt::get(builder.getInt8Ty(), treated_str[i]);
   }
   auto init = ConstantArray::get(ArrayType::get(builder.getInt8Ty(), chars.size()),
@@ -192,7 +217,7 @@ Value* backend_gen_dif(Value* val, Type* val_type, Type* expected_type, bool sig
 
 Value* backend_gen_const_arr(Type* ty, list_t* items) {
   std::vector<llvm::Constant *> values(ty->getArrayNumElements());
-  int i = 0;
+  uint64_t i = 0;
   for (list_item_t* item = items->head->next; item != items->head; item = item->next) {
     node_t* node = (node_t*)item->data;
     if (node->type == NODE_STR) {
@@ -205,7 +230,7 @@ Value* backend_gen_const_arr(Type* ty, list_t* items) {
     i++;
   }
   if (i < ty->getArrayNumElements()) {
-    for (i; i < ty->getArrayNumElements(); i++) {
+    for (; i < ty->getArrayNumElements(); i++) {
       values[i] = ConstantAggregateZero::get(ty->getArrayElementType());
     }
   }
@@ -497,8 +522,7 @@ void backend_gen_fn_def(node_t* node) {
   }
   free(name);
   if (!fn_node->initialised) return;
-  var_map.clear();
-  var_types.clear();
+  backend_new_scope();
   fn_ret = false;
   current_fn = fn;
   BasicBlock* entry = BasicBlock::Create(context, "entry", fn);
@@ -517,13 +541,16 @@ void backend_gen_fn_def(node_t* node) {
     builder.CreateStore(val, addr);
     val = addr;
 
-    var_map[std::string(pname)] = val;
-    var_types[std::string(pname)] = var->type;
+    current_scope->var_map[std::string(pname)] = val;
+    current_scope->var_types[std::string(pname)] = var->type;
     free(pname);
   }
-  for (list_item_t* item = fn_node->body->head->next; item != fn_node->body->head; item = item->next) {
-    backend_gen_stmt((node_t*)item->data);
+  if (fn_node->body->size > 0) {
+    for (list_item_t* item = fn_node->body->head->next; item != fn_node->body->head; item = item->next) {
+      backend_gen_stmt((node_t*)item->data);
+    }
   }
+  backend_back_scope();
   if (!fn_ret) {
     if (fn->getReturnType() == Type::getVoidTy(context)) {
       builder.CreateRetVoid();
@@ -548,11 +575,9 @@ void backend_gen_var_def(node_t* node) {
   Value* var;
   int alignment = var_node->type->alignment;
   if (current_fn != nullptr) {
-    builder.SetInsertPoint(entry_block);
     var = builder.CreateAlloca(type, nullptr, name);
     if (alignment > 0)
       ((AllocaInst*)var)->setAlignment(Align(alignment));
-    builder.SetInsertPoint(current_block);
   } else {
     auto glob = (&module)->getOrInsertGlobal(name, type);
     var = glob;
@@ -564,13 +589,8 @@ void backend_gen_var_def(node_t* node) {
     if (alignment > 0)
       ((GlobalVariable*)var)->setAlignment(Align(alignment));
   }
-  if (current_fn != nullptr) {
-    var_map[std::string(name)] = var;
-    var_types[std::string(name)] = var_node->type;
-  } else {
-    glb_var_map[std::string(name)] = var;
-    glb_var_types[std::string(name)] = var_node->type;
-  }
+  current_scope->var_map[std::string(name)] = var;
+  current_scope->var_types[std::string(name)] = var_node->type;
   current_ty = var_node->type;
   free(name);
   if (!var_node->initialised) {
@@ -607,7 +627,7 @@ Value* backend_gen_fn_call(node_t* node) {
   char* name = parse_str(fn_call_node->name);
   Function* fn = fn_map[std::string(name)];
   auto param_iterator = fn->arg_begin();
-  int size = 0;
+  size_t size = 0;
   if (fn_call_node->arguments->size > 0) {
     for (list_item_t* item = fn_call_node->arguments->head->next; item != fn_call_node->arguments->head;
       item = item->next) {
@@ -735,7 +755,7 @@ std::tuple<Type*,Value*> backend_gen_deref(node_t* node) {
     node_t* var_node = node->lhs->lhs;
     char* name = parse_str(var_node->tok);
     Value* var = backend_get_var(name);
-    ty = backend_get_llvm_type(var_types[name]);
+    ty = backend_get_llvm_type(backend_get_parser_var_type(name));
 
     var = builder.CreateLoad(ty, var);
     ty = ty->getPointerElementType();
@@ -775,7 +795,7 @@ std::tuple<Type*,Value*> backend_gen_ref(node_t* node) {
     node_t* var_node = node->lhs->lhs;
     char* name = parse_str(var_node->tok);
     Value* var = backend_get_var(name);
-    ty = backend_get_llvm_type(var_types[name]);
+    ty = backend_get_llvm_type(backend_get_parser_var_type(name));
 
     var = builder.CreateLoad(ty, var);
     ty = ty->getPointerElementType();
@@ -853,7 +873,6 @@ void backend_gen_ret(node_t* node) {
 void backend_gen_cond(node_t* cond, BasicBlock* true_block, BasicBlock* false_block) {
   if (cond->type >= NODE_EQEQ && cond->type <= NODE_NOTEQ && cond->type != NODE_NOT) {
     auto first_expr = backend_gen_iexpr(nullptr, cond->lhs);
-    type_t* ty = current_ty;
     auto second_expr = backend_gen_iexpr(std::get<0>(first_expr), cond->rhs);
     Value* lhs = std::get<1>(first_expr);
     Value* rhs = std::get<1>(second_expr);
@@ -920,25 +939,10 @@ void backend_gen_cond(node_t* cond, BasicBlock* true_block, BasicBlock* false_bl
   }
 }
 
-std::tuple<std::map<std::string, Value*>, std::map<std::string, Type*>> backend_new_scope() {
-  std::map<std::string, Value*> temp(var_map);
-  std::map<std::string, Type*> temp2(type_map);
-  var_map.clear(); type_map.clear();
-  return {temp, temp2};
-}
-
-void backend_restore_scope(std::tuple<std::map<std::string, Value*>, std::map<std::string, Type*>> restore) {
-  std::map<std::string, Value*> temp = std::get<0>(restore);
-  std::map<std::string, Type*> temp2 = std::get<1>(restore);
-  var_map.clear(); type_map.clear();
-  var_map.swap(temp);
-  type_map.swap(temp2);
-}
-
 void backend_gen_for_loop(node_t* node) {
   for_stmt_t* stmt = (for_stmt_t*)node->data;
 
-  auto restore = backend_new_scope();
+  backend_new_scope();
 
   if (stmt->primary_stmt->type == NODE_VAR_DEF)
     backend_gen_var_def(stmt->primary_stmt);
@@ -980,7 +984,7 @@ void backend_gen_for_loop(node_t* node) {
   builder.SetInsertPoint(cond);
   backend_gen_cond(node->lhs, body, end);
 
-  backend_restore_scope(restore);
+  backend_back_scope();
 
   builder.SetInsertPoint(end);
 }
@@ -1038,7 +1042,7 @@ void backend_gen_if_stmt(node_t* node) {
 void backend_gen_while_loop(node_t* node) {
   while_stmt_t* stmt = (while_stmt_t*)node->data;
 
-  auto restore = backend_new_scope();
+  backend_new_scope();
 
   BasicBlock* entry_block = current_block;
 
@@ -1068,7 +1072,7 @@ void backend_gen_while_loop(node_t* node) {
   builder.SetInsertPoint(cond);
   backend_gen_cond(node->lhs, body, end);
 
-  backend_restore_scope(restore);
+  backend_back_scope();
 
   builder.SetInsertPoint(end);
 }
@@ -1084,6 +1088,7 @@ void backend_gen_break_continue(node_t* node) {
 }
 
 void backend_gen_stmt(node_t* node) {
+  if (!node) return;
   switch (node->type) {
     case NODE_COMPOUND: {
       list_t* ast = (list_t*)node->data;
@@ -1126,6 +1131,8 @@ void backend_gen_stmt(node_t* node) {
 }
 
 extern "C" void backend_gen(list_t* ast, bool print_ir, char* out) {
+  current_scope = nullptr;
+  backend_new_scope();
   for (list_item_t* item = ast->head->next; item != ast->head; item = item->next) {
     backend_gen_stmt((node_t*)item->data);
   }

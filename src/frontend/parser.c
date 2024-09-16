@@ -24,9 +24,9 @@ void parser_msgat(parser_t* parser) {
   while (parser->lexer->source[end] != '\n' && end != 0) {
     end++;
   }
-  int ident = fprintf(stderr, "%s:%zu ", parser->lexer->filename, parser->token->position.row);
+  fprintf(stderr, "%s:%zu ", parser->lexer->filename, parser->token->position.row);
   fprintf(stderr, "\n%.*s\n", (end - pos), parser->lexer->source + pos);
-  for (int i = 0; i < parser->token->position.col - parser->token->text_len - 1; i++) {
+  for (size_t i = 0; i < parser->token->position.col - parser->token->text_len - 1; i++) {
     if (parser->lexer->source[i] == '\t') {
       fprintf(stderr, "\t");
       continue;
@@ -189,7 +189,7 @@ void parser_type_check(parser_t* parser, type_t* ty1, type_t* ty2) {
 type_t* parser_get_type(parser_t* parser) {
   token_t* first_tok = parser_consume(parser);
   token_t* type_tok = first_tok;
-  basetype_t* bt;
+  basetype_t* bt = NULL;
   bool _signed = false;
   bool is_ptr = false;
   int ptr_cnt = 0;
@@ -282,7 +282,7 @@ type_t* parser_get_type(parser_t* parser) {
 }
 
 node_t* parse_stmt(parser_t* parser) {
-  node_t* ret;
+  node_t* ret = NULL;
   switch (parser->token->type) {
     case TOK_LBRAC:
       ret = parse_compound_stmt(parser);

@@ -96,9 +96,9 @@ void lexer_error(lexer_t* l, const char* fmt, ...) {
   while (l->source[end] != '\n' && end != 0) {
     end++;
   }
-  int ident = fprintf(stderr, "%s:%zu", l->filename, l->position.row);
+  fprintf(stderr, "%s:%zu", l->filename, l->position.row);
   fprintf(stderr, "\n%.*s\n", (end - pos), l->source + pos);
-  for (int i = 0; i < l->position.col - 1; i++) {
+  for (size_t i = 0; i < l->position.col - 1; i++) {
     if (l->source[i] == '\t') {
       fprintf(stderr, "\t");
       continue;

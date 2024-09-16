@@ -55,7 +55,7 @@ node_t* parse_array(parser_t* parser, type_t* type) {
   list_t* list = list_create();
   while (parser->token->type != TOK_RSQBR) {
     if (type->pointer && type->is_arr) {
-      if (type->pointer->arr_size->type == NODE_INT && list->size + 1 > type->pointer->arr_size->value) {
+      if (type->pointer->arr_size->type == NODE_INT && list->size + 1 > (size_t)type->pointer->arr_size->value) {
         parser_error(parser, "Too many items in array.");
         return NULL;
       }
@@ -188,12 +188,6 @@ node_t* parse_lvalue(parser_t* parser) {
   if (name->type == TOK_AT) {
     parser_consume(parser);
     node_t* expr = parse_expr(parser, NULL);
-    node_t* id = NULL;
-    if (expr->lhs) {
-      id = expr->lhs;
-    } else {
-      id = expr;
-    }
     node = NEW_DATA(node_t);
     node->type = NODE_AT;
     node->lhs = expr;
@@ -290,7 +284,6 @@ node_t* parse_var_decl(parser_t* parser, bool param, bool struc_member) {
 
 list_t* parser_param_list(parser_t* parser, bool* undef_params) {
   list_t* params = list_create();
-  int count = 0;
   if (parser_peek(parser)->type == TOK_RPAR) {
     parser_eat(parser, TOK_RPAR);
     return params;
@@ -349,7 +342,7 @@ node_t* parse_fn_decl(parser_t* parser) {
 
   parser_new_obj(parser, type, name, parse_str(name), false, true, param_list)->undef_params = func->undef_params;
 
-  list_t* body;
+  list_t* body = NULL;
   if (open->type == TOK_LBRAC) {
     scope->type = type;
     body = parse_body(parser);
@@ -534,7 +527,6 @@ node_t* parse_if(parser_t* parser) {
   memset(stmt, 0, sizeof(if_stmt_t));
 
   stmt->true_stmt = parse_stmt(parser);
-  node_t* false_stmt = NULL;
   if (parser->token->type == TOK_ELSE) {
     parser_consume(parser);
     stmt->false_stmt = parse_stmt(parser);
