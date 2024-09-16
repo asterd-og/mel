@@ -6,6 +6,8 @@
 
 // TODO: Break this code into other files (not all functions here are directly related to statements)
 
+int parser_inside_loop = 0;
+
 node_t* parse_internal_arr_idx(parser_t* parser, type_t* type) {
   token_t* name = parser->token;
   if (!type->is_arr && !type->is_pointer) {
@@ -102,10 +104,13 @@ node_t* parse_ref(parser_t* parser, type_t* type) {
 
 node_t* parse_struct_acc(parser_t* parser, type_t* type);
 
-node_t* parse_id(parser_t* parser) {
+type_t* id_type = NULL;
+
+node_t* parse_id(parser_t* parser, type_t* type) {
   token_t* name = parser_expect(parser, TOK_ID);
   char* pname = parse_str(name);
   object_t* obj = parser_find_obj(parser, pname);
+  id_type = obj->type;
   node_t* node;
   if (parser_peek(parser)->type == TOK_DOT) {
     if (!obj->type->type->_struct) {
@@ -126,12 +131,15 @@ node_t* parse_id(parser_t* parser) {
     node->tok = name;
     parser_consume(parser);
   }
+  if (type != NULL)
+    parser_type_check(parser, id_type, type);
   return node;
 }
 
 node_t* parse_struct_acc(parser_t* parser, type_t* type) {
   // Gotta end in =
   node_t* lhs;
+  id_type = type;
   if (parser_peek(parser)->type != TOK_LSQBR) {
     lhs = NEW_DATA(node_t);
     lhs->lhs = NULL; lhs->rhs = NULL;
@@ -167,6 +175,7 @@ node_t* parse_struct_acc(parser_t* parser, type_t* type) {
       return NULL;
     }
     node->rhs = parse_struct_acc(parser, ty);
+    id_type = ty;
     return node;
   }
   return lhs;
@@ -190,7 +199,7 @@ node_t* parse_lvalue(parser_t* parser) {
     node->lhs = expr;
     return node;
   }
-  return parse_id(parser);
+  return parse_id(parser, NULL);
 }
 
 node_t* parse_var_decl(parser_t* parser, bool param, bool struc_member) {
@@ -566,7 +575,9 @@ node_t* parse_for(parser_t* parser) {
   for_stmt_t* stmt = NEW_DATA(for_stmt_t);
   stmt->custom_step = custom_step; stmt->primary_stmt = primary_stmt;
   stmt->step = step;
+  parser_inside_loop++;
   stmt->body = parse_stmt(parser);
+  parser_inside_loop--;
   node->data = stmt;
   return node;
 }
@@ -577,7 +588,9 @@ node_t* parse_while(parser_t* parser) {
   node_t* cond = parse_condition(parser);
   parser_expect(parser, TOK_RPAR);
   parser_consume(parser);
+  parser_inside_loop++;
   node_t* stmt = parse_stmt(parser);
+  parser_inside_loop--;
   bool initialised = true;
   node_t* node = NEW_DATA(node_t);
   while_stmt_t* wstmt = NEW_DATA(while_stmt_t);
@@ -586,6 +599,19 @@ node_t* parse_while(parser_t* parser) {
   wstmt->initialised = initialised;
   wstmt->body = stmt;
   node->data = wstmt;
+  return node;
+}
+
+node_t* parse_break_continue(parser_t* parser) {
+  if (parser_inside_loop == 0) {
+    parser_error(parser, "Cannot use break/continue outside a loop.");
+    return NULL;
+  }
+  token_t* tok = parser->token;
+  parser_eat(parser, TOK_SEMI);
+  node_t* node = NEW_DATA(node_t);
+  node->type = (tok->type == TOK_BREAK ? NODE_BREAK : NODE_CONTINUE);
+  node->tok = tok;
   return node;
 }
 

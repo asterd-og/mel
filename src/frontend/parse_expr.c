@@ -300,12 +300,12 @@ node_t* parse_factor(parser_t* parser) {
         parser_error(parser, "Object has type void.");
         return NULL;
       }
-      parser_type_check(parser, obj->type, parser_current_ty);
       token_t* peek = parser_peek(parser);
       if (peek->type == TOK_LPAR) {
         node = parse_fn_call(parser, false);
         parser_current_ty = obj->type;
         node->lhs = NULL; node->rhs = NULL;
+        parser_type_check(parser, obj->type, parser_current_ty);
         break;
       }
       if (obj->func) {
@@ -313,7 +313,7 @@ node_t* parse_factor(parser_t* parser) {
         if (set_type)
           parser_current_ty->is_pointer = true;
       }
-      node = parse_id(parser);
+      node = parse_id(parser, parser_current_ty);
       parser_rewind(parser);
       break;
     }

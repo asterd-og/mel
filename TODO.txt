@@ -9,8 +9,6 @@ Implement sizeof
 Error the user if array dimension difference
 Check if dereferencing pointer is the same type
 
-Implement continue and break keywords
-
 Static and const objects.
 
 Chars

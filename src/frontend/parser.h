@@ -48,7 +48,7 @@ node_t* parse_arr_idx(parser_t* parser);
 node_t* parse_array(parser_t* parser, type_t* type);
 node_t* parse_ref(parser_t* parser, type_t* type);
 node_t* parse_expr(parser_t* parser, type_t* type);
-node_t* parse_id(parser_t* parser);
+node_t* parse_id(parser_t* parser, type_t* type);
 node_t* parse_var_decl(parser_t* parser, bool param, bool struc_member);
 list_t* parser_param_list(parser_t* parser, bool* undef_params);
 list_t* parse_body(parser_t* parser);
@@ -74,6 +74,7 @@ node_t* parse_simple_expr(parser_t* parser);
 node_t* parse_lvalue(parser_t* parser);
 
 void parse_struct_decl(parser_t* parser);
+node_t* parse_break_continue(parser_t* parser);
 
 node_t* parse_stmt(parser_t* parser);
 node_t* parse_fn_call(parser_t* parser, bool stmt);

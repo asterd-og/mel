@@ -47,7 +47,9 @@ enum {
 
   NODE_ARR_IDX, NODE_AT, NODE_REF,
   NODE_STRUCT_ACC, NODE_3DOT,
-  NODE_CAST
+  NODE_CAST,
+
+  NODE_BREAK, NODE_CONTINUE
 };
 
 typedef struct node_t {

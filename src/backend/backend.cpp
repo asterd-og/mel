@@ -20,6 +20,8 @@ bool fn_ret = false;
 int inside_scope = 0;
 type_t* current_ty; // parser ty, handles signess
 BasicBlock* current_block;
+BasicBlock* step_block;
+BasicBlock* end_block;
 bool should_br = true; // should put a br instruction at the end of conditional statement blocks?
 std::map<std::string, Function*> fn_map;
 std::map<std::string, Value*> var_map;
@@ -928,6 +930,7 @@ void backend_gen_for_loop(node_t* node) {
   current_block = cond;
 
   BasicBlock* step = BasicBlock::Create(context, "for.step", current_fn);
+  step_block = step;
   builder.SetInsertPoint(step);
   current_block = step;
   backend_gen_assignment(stmt->step);
@@ -935,6 +938,8 @@ void backend_gen_for_loop(node_t* node) {
 
   inside_scope++;
   BasicBlock* body = BasicBlock::Create(context, "for.body", current_fn);
+  BasicBlock* end = BasicBlock::Create(context, "for.end", current_fn);
+  end_block = end;
   builder.SetInsertPoint(body);
   current_block = body;
   backend_gen_stmt(stmt->body);
@@ -943,7 +948,6 @@ void backend_gen_for_loop(node_t* node) {
 
   inside_scope--;
 
-  BasicBlock* end = BasicBlock::Create(context, "for.end", current_fn);
   current_block = end;
 
   builder.SetInsertPoint(entry_block);
@@ -1011,11 +1015,14 @@ void backend_gen_while_loop(node_t* node) {
   BasicBlock* entry_block = current_block;
 
   BasicBlock* cond = BasicBlock::Create(context, "while.cond", current_fn);
+  step_block = cond;
   builder.SetInsertPoint(cond);
   current_block = cond;
 
   inside_scope++;
   BasicBlock* body = BasicBlock::Create(context, "while.body", current_fn);
+  BasicBlock* end = BasicBlock::Create(context, "while.end", current_fn);
+  end_block = end;
   builder.SetInsertPoint(body);
   current_block = body;
   backend_gen_stmt(stmt->body);
@@ -1023,7 +1030,6 @@ void backend_gen_while_loop(node_t* node) {
   else should_br = true;
   inside_scope--;
 
-  BasicBlock* end = BasicBlock::Create(context, "while.end", current_fn);
   current_block = end;
 
   builder.SetInsertPoint(entry_block);
@@ -1033,6 +1039,16 @@ void backend_gen_while_loop(node_t* node) {
   backend_gen_cond(node->lhs, body, end);
 
   builder.SetInsertPoint(end);
+}
+
+void backend_gen_break_continue(node_t* node) {
+  if (node->type == NODE_BREAK) {
+    builder.CreateBr(end_block);
+    should_br = false;
+  } else {
+    builder.CreateBr(step_block);
+    should_br = false;
+  }
 }
 
 void backend_gen_stmt(node_t* node) {
@@ -1068,6 +1084,11 @@ void backend_gen_stmt(node_t* node) {
       break;
     case NODE_RET:
       backend_gen_ret(node);
+      break;
+    // TODO: Check if this works for nested loops
+    case NODE_BREAK:
+    case NODE_CONTINUE:
+      backend_gen_break_continue(node);
       break;
   }
 }

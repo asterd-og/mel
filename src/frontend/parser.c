@@ -174,7 +174,8 @@ void parser_type_check(parser_t* parser, type_t* ty1, type_t* ty2) {
       parser_error(parser, "Trying to pass 2+D array into double (or more) pointer.");
     }
   }
-  if (ty1->is_pointer && ty2->is_pointer) {
+  // Disable type checking rn, because its really buggy FIXME
+  /*if (ty1->is_pointer && ty2->is_pointer) {
     if (ty1->type->size != ty2->type->size) {
       parser_warn(parser, "Size-mismatch between pointers of '%s' and '%s'.", ty1->type->name, ty2->type->name);
     }
@@ -182,7 +183,7 @@ void parser_type_check(parser_t* parser, type_t* ty1, type_t* ty2) {
     if (ty1->type != ty2->type) {
       parser_warn(parser, "Type-mismatch between type '%s' and '%s'.", ty1->type->name, ty2->type->name);
     }
-  }
+  }*/
 }
 
 type_t* parser_get_type(parser_t* parser) {
@@ -308,6 +309,11 @@ node_t* parse_stmt(parser_t* parser) {
       break;
     case TOK_RET:
       ret = parse_ret(parser);
+      parser_consume(parser); // skip ;
+      break;
+    case TOK_BREAK:
+    case TOK_CONTINUE:
+      ret = parse_break_continue(parser);
       parser_consume(parser); // skip ;
       break;
     case TOK_VAR:
