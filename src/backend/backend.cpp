@@ -939,6 +939,7 @@ void backend_gen_for_loop(node_t* node) {
   inside_scope++;
   BasicBlock* body = BasicBlock::Create(context, "for.body", current_fn);
   BasicBlock* end = BasicBlock::Create(context, "for.end", current_fn);
+  BasicBlock* temp_end = end_block;
   end_block = end;
   builder.SetInsertPoint(body);
   current_block = body;
@@ -947,6 +948,7 @@ void backend_gen_for_loop(node_t* node) {
   else should_br = true;
 
   inside_scope--;
+  end_block = temp_end;
 
   current_block = end;
 
@@ -1022,12 +1024,14 @@ void backend_gen_while_loop(node_t* node) {
   inside_scope++;
   BasicBlock* body = BasicBlock::Create(context, "while.body", current_fn);
   BasicBlock* end = BasicBlock::Create(context, "while.end", current_fn);
+  BasicBlock* temp_end = end_block;
   end_block = end;
   builder.SetInsertPoint(body);
   current_block = body;
   backend_gen_stmt(stmt->body);
   if (should_br) builder.CreateBr(cond);
   else should_br = true;
+  end_block = temp_end;
   inside_scope--;
 
   current_block = end;

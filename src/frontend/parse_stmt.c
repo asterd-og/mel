@@ -552,6 +552,8 @@ node_t* parse_for(parser_t* parser) {
   parser_eat(parser, TOK_LPAR);
   token_t* next = parser_consume(parser);
   node_t* primary_stmt;
+  scope_t* scope = parser_new_scope(parser);
+  parser->scope = scope;
   if (next->type == TOK_ID) {
     primary_stmt = parse_assign(parser, true);
   } else {
@@ -579,6 +581,7 @@ node_t* parse_for(parser_t* parser) {
   stmt->body = parse_stmt(parser);
   parser_inside_loop--;
   node->data = stmt;
+  parser->scope = scope->parent;
   return node;
 }
 

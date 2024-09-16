@@ -2,11 +2,5 @@ import "cast.mh";
 import "lib.mh";
 
 fn main(): int {
-  for (var i: int = 0; i < 100; i += 1) {
-    if (i % 2) {
-      continue;
-    }
-    printFmt("%d\n", i);
-  }
   ret 0;
 }
