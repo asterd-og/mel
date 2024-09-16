@@ -19,6 +19,7 @@ Function* current_fn = nullptr;
 bool fn_ret = false;
 int inside_scope = 0;
 type_t* current_ty; // parser ty, handles signess
+BasicBlock* entry_block;
 BasicBlock* current_block;
 BasicBlock* step_block;
 BasicBlock* end_block;
@@ -497,9 +498,11 @@ void backend_gen_fn_def(node_t* node) {
   free(name);
   if (!fn_node->initialised) return;
   var_map.clear();
+  var_types.clear();
   fn_ret = false;
   current_fn = fn;
   BasicBlock* entry = BasicBlock::Create(context, "entry", fn);
+  entry_block = entry;
   builder.SetInsertPoint(entry);
   current_block = entry;
   auto param_iterator = fn->arg_begin();
@@ -545,9 +548,11 @@ void backend_gen_var_def(node_t* node) {
   Value* var;
   int alignment = var_node->type->alignment;
   if (current_fn != nullptr) {
+    builder.SetInsertPoint(entry_block);
     var = builder.CreateAlloca(type, nullptr, name);
     if (alignment > 0)
       ((AllocaInst*)var)->setAlignment(Align(alignment));
+    builder.SetInsertPoint(current_block);
   } else {
     auto glob = (&module)->getOrInsertGlobal(name, type);
     var = glob;
@@ -915,8 +920,25 @@ void backend_gen_cond(node_t* cond, BasicBlock* true_block, BasicBlock* false_bl
   }
 }
 
+std::tuple<std::map<std::string, Value*>, std::map<std::string, Type*>> backend_new_scope() {
+  std::map<std::string, Value*> temp(var_map);
+  std::map<std::string, Type*> temp2(type_map);
+  var_map.clear(); type_map.clear();
+  return {temp, temp2};
+}
+
+void backend_restore_scope(std::tuple<std::map<std::string, Value*>, std::map<std::string, Type*>> restore) {
+  std::map<std::string, Value*> temp = std::get<0>(restore);
+  std::map<std::string, Type*> temp2 = std::get<1>(restore);
+  var_map.clear(); type_map.clear();
+  var_map.swap(temp);
+  type_map.swap(temp2);
+}
+
 void backend_gen_for_loop(node_t* node) {
   for_stmt_t* stmt = (for_stmt_t*)node->data;
+
+  auto restore = backend_new_scope();
 
   if (stmt->primary_stmt->type == NODE_VAR_DEF)
     backend_gen_var_def(stmt->primary_stmt);
@@ -957,6 +979,8 @@ void backend_gen_for_loop(node_t* node) {
 
   builder.SetInsertPoint(cond);
   backend_gen_cond(node->lhs, body, end);
+
+  backend_restore_scope(restore);
 
   builder.SetInsertPoint(end);
 }
@@ -1014,6 +1038,8 @@ void backend_gen_if_stmt(node_t* node) {
 void backend_gen_while_loop(node_t* node) {
   while_stmt_t* stmt = (while_stmt_t*)node->data;
 
+  auto restore = backend_new_scope();
+
   BasicBlock* entry_block = current_block;
 
   BasicBlock* cond = BasicBlock::Create(context, "while.cond", current_fn);
@@ -1041,6 +1067,8 @@ void backend_gen_while_loop(node_t* node) {
 
   builder.SetInsertPoint(cond);
   backend_gen_cond(node->lhs, body, end);
+
+  backend_restore_scope(restore);
 
   builder.SetInsertPoint(end);
 }
