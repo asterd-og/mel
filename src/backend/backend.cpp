@@ -25,6 +25,7 @@ BasicBlock* entry_block;
 BasicBlock* current_block;
 BasicBlock* step_block;
 BasicBlock* end_block;
+BasicBlock* scheduled_br = nullptr;
 bool should_br = true; // should put a br instruction at the end of conditional statement blocks?
 std::map<std::string, Function*> fn_map;
 BasicBlock* entry_br = nullptr;
@@ -474,6 +475,7 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       val = backend_gen_aop(node->type, (current_ty ? current_ty->_signed : false), lhs, rhs);
       break;
   }
+  free(node);
   return {ty, val};
 }
 
@@ -550,6 +552,11 @@ void backend_gen_fn_def(node_t* node) {
       backend_gen_stmt((node_t*)item->data);
     }
   }
+  if (scheduled_br) {
+    builder.SetInsertPoint(entry);
+    builder.CreateBr(scheduled_br);
+    builder.SetInsertPoint(current_block);
+  }
   backend_back_scope();
   if (!fn_ret) {
     if (fn->getReturnType() == Type::getVoidTy(context)) {
@@ -565,6 +572,7 @@ void backend_gen_fn_def(node_t* node) {
       builder.CreateRet(ret);
     }
   }
+  scheduled_br = nullptr;
   current_fn = nullptr;
 }
 
@@ -575,9 +583,11 @@ void backend_gen_var_def(node_t* node) {
   Value* var;
   int alignment = var_node->type->alignment;
   if (current_fn != nullptr) {
+    builder.SetInsertPoint(entry_block);
     var = builder.CreateAlloca(type, nullptr, name);
     if (alignment > 0)
       ((AllocaInst*)var)->setAlignment(Align(alignment));
+    builder.SetInsertPoint(current_block);
   } else {
     auto glob = (&module)->getOrInsertGlobal(name, type);
     var = glob;
@@ -949,7 +959,7 @@ void backend_gen_for_loop(node_t* node) {
   else 
     backend_gen_assignment(stmt->primary_stmt);
 
-  BasicBlock* entry_block = current_block;
+  BasicBlock* temp_block = current_block;
 
   BasicBlock* cond = BasicBlock::Create(context, "for.cond", current_fn);
   builder.SetInsertPoint(cond);
@@ -978,8 +988,13 @@ void backend_gen_for_loop(node_t* node) {
 
   current_block = end;
 
-  builder.SetInsertPoint(entry_block);
-  builder.CreateBr(cond);
+  if (temp_block == entry_block) {
+    if (!scheduled_br)
+      scheduled_br = cond;
+  } else {
+    builder.SetInsertPoint(temp_block);
+    builder.CreateBr(cond);
+  }
 
   builder.SetInsertPoint(cond);
   backend_gen_cond(node->lhs, body, end);
@@ -991,7 +1006,9 @@ void backend_gen_for_loop(node_t* node) {
 
 void backend_gen_if_stmt(node_t* node) {
   if_stmt_t* stmt = (if_stmt_t*)node->data;
-  BasicBlock* entry_block = current_block;
+  BasicBlock* temp_block = current_block;
+
+  BasicBlock* cond = BasicBlock::Create(context, "if.cond", current_fn);
 
   BasicBlock* true_body = BasicBlock::Create(context, "if.then", current_fn);
   builder.SetInsertPoint(true_body);
@@ -1032,8 +1049,16 @@ void backend_gen_if_stmt(node_t* node) {
     }
   }
 
-  builder.SetInsertPoint(entry_block);
+  builder.SetInsertPoint(cond);
   backend_gen_cond(node->lhs, true_body, (stmt->false_stmt ? else_body : end_body));
+
+  if (temp_block == entry_block) {
+    if (!scheduled_br)
+      scheduled_br = cond;
+  } else {
+    builder.SetInsertPoint(temp_block);
+    builder.CreateBr(cond);
+  }
 
   builder.SetInsertPoint(end_body);
   current_block = end_body;
@@ -1044,7 +1069,7 @@ void backend_gen_while_loop(node_t* node) {
 
   backend_new_scope();
 
-  BasicBlock* entry_block = current_block;
+  BasicBlock* temp_block = current_block;
 
   BasicBlock* cond = BasicBlock::Create(context, "while.cond", current_fn);
   step_block = cond;
@@ -1066,8 +1091,13 @@ void backend_gen_while_loop(node_t* node) {
 
   current_block = end;
 
-  builder.SetInsertPoint(entry_block);
-  builder.CreateBr(cond);
+  if (temp_block == entry_block) {
+    if (!scheduled_br)
+      scheduled_br = cond;
+  } else {
+    builder.SetInsertPoint(temp_block);
+    builder.CreateBr(cond);
+  }
 
   builder.SetInsertPoint(cond);
   backend_gen_cond(node->lhs, body, end);
@@ -1128,6 +1158,7 @@ void backend_gen_stmt(node_t* node) {
       backend_gen_break_continue(node);
       break;
   }
+  free(node);
 }
 
 extern "C" void backend_gen(list_t* ast, bool print_ir, char* out) {

@@ -458,7 +458,10 @@ node_t* parse_ret(parser_t* parser) {
   node->lhs = NULL;
   token_t* next = parser_consume(parser);
   if (next->type == TOK_SEMI) {
-    parser_consume(parser);
+    if (parser->scope->type->type->size != 0) {
+      parser_error(parser, "Trying to return nothing from non-void function.");
+      return NULL;
+    }
     return node;
   }
   node->lhs = parse_expr(parser, parser->scope->type);

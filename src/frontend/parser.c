@@ -169,12 +169,12 @@ object_t* parser_new_obj(parser_t* parser, type_t* type, token_t* tok, char* nam
 
 // Checks if both types are the same
 void parser_type_check(parser_t* parser, type_t* ty1, type_t* ty2) {
-  if (ty2->is_arr && ty1->is_pointer) {
+  // Disable type checking rn, because its really buggy FIXME
+  /*if (ty2->is_arr && ty1->is_pointer) {
     if (ty2->pointer && ty2->pointer->is_arr) {
       parser_error(parser, "Trying to pass 2+D array into double (or more) pointer.");
     }
-  }
-  // Disable type checking rn, because its really buggy FIXME
+  }*/
   /*if (ty1->is_pointer && ty2->is_pointer) {
     if (ty1->type->size != ty2->type->size) {
       parser_warn(parser, "Size-mismatch between pointers of '%s' and '%s'.", ty1->type->name, ty2->type->name);
