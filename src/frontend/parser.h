@@ -11,6 +11,8 @@
 
 #define NEW_DATA(type) (type*)malloc(sizeof(type))
 #define POWEROF2(x) (!(x & (x - 1)) && x)
+#define DIV_ROUND_UP(x, y) (((x) + ((y) - 1)) / (y))
+#define ALIGN_UP(x, y) (DIV_ROUND_UP(x, y) * (y))
 
 typedef struct {
   lexer_t* lexer;
@@ -39,6 +41,7 @@ char* parse_str(token_t* tok);
 
 scope_t* parser_new_scope(parser_t* parser);
 
+object_t* parser_internal_find_obj(parser_t* parser, char* name, bool error);
 object_t* parser_find_obj(parser_t* parser, char* name);
 object_t* parser_new_obj(parser_t* parser, type_t* type, token_t* tok, char* name, bool var, bool glb, list_t* params);
 void parser_type_check(parser_t* parser, type_t* ty1, type_t* ty2);

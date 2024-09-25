@@ -67,6 +67,7 @@ enum {
   TOK_PACKED,
   TOK_BREAK,
   TOK_CONTINUE,
+  TOK_SIZEOF,
 };
 
 typedef struct {

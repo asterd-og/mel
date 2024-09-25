@@ -395,6 +395,40 @@ node_t* parse_factor(parser_t* parser) {
       parser_current_ty = ty;
       break;
     }
+    case TOK_SIZEOF: {
+      token_t* next = parser_consume(parser);
+      int64_t size = 0;
+      type_t* type;
+      if (next->type == TOK_STAR) {
+        parser_rewind(parser);
+        type = parser_get_type(parser);
+      } else {
+        object_t* obj = parser_internal_find_obj(parser, parse_str(next), false);
+        if (!obj) {
+          parser_rewind(parser);
+          type = parser_get_type(parser);
+        } else {
+          type = obj->type;
+        }
+      }
+      if (type->is_arr) {
+        type_t* temp = type;
+        while (temp->pointer) {
+          temp = temp->pointer;
+          size += type->type->size * temp->arr_size->value;
+        }
+      } else if (type->is_pointer) {
+        size = 8;
+      } else {
+        size = type->type->size;
+      }
+      node = NEW_DATA(node_t);
+      memset(node, 0, sizeof(node_t));
+      node->type = NODE_INT;
+      node->value = size;
+      node->tok = next;
+      break;
+    }
     default:
       parser_error(parser, "Unexpected factor '%.*s'", tok->text_len, tok->text);
       return NULL;

@@ -124,7 +124,7 @@ scope_t* parser_new_scope(parser_t* parser) {
   return scope;
 }
 
-object_t* parser_find_obj(parser_t* parser, char* name) {
+object_t* parser_internal_find_obj(parser_t* parser, char* name, bool error) {
   object_t* obj;
   if (parser->scope->glob_scope) {
     obj = hashmap_get(parser->glb_obj, name);
@@ -140,12 +140,18 @@ object_t* parser_find_obj(parser_t* parser, char* name) {
     }
   }
   if (!obj) {
-    parser_error(parser, "Undefined reference to object '%s'.", name);
-    free(name);
+    if (error) {
+      parser_error(parser, "Undefined reference to object '%s'.", name);
+      free(name);
+    }
     return NULL;
   }
   free(name); // we should always use parser_find_obj and pass name as a parse_str
   return obj;
+}
+
+object_t* parser_find_obj(parser_t* parser, char* name) {
+  return parser_internal_find_obj(parser, name, true);
 }
 
 object_t* parser_new_obj(parser_t* parser, type_t* type, token_t* tok, char* name, bool var, bool glb, list_t* params) {
@@ -238,10 +244,12 @@ type_t* parser_get_type(parser_t* parser) {
     return NULL;
   }*/
   type_t* type = NEW_DATA(type_t);
+  type->alignment = bt->alignment;
   type->type = bt;
   type->_signed = _signed;
   type->pointer = NULL;
-  type->is_pointer = false; type->is_arr = false;
+  type->is_pointer = is_ptr; type->is_arr = false;
+  if (is_ptr) type->alignment = 8;
   if (parser_peek(parser)->type == TOK_LSQBR) {
     if (type->type->size == 0) {
       parser_error(parser, "You can't create an array of type void.\n");
@@ -277,7 +285,7 @@ type_t* parser_get_type(parser_t* parser) {
     type->dimensions = count; type->is_pointer = is_ptr; type->ptr_cnt = ptr_cnt;
     return type;
   }
-  type->is_pointer = is_ptr; type->dimensions = type->ptr_cnt = ptr_cnt;
+  type->dimensions = type->ptr_cnt = ptr_cnt;
   return type;
 }
 

@@ -235,7 +235,8 @@ node_t* parse_var_decl(parser_t* parser, bool param, bool struc_member) {
     parser_error(parser, "You can't create a variable of type void.");
     return NULL;
   }
-  type->alignment = alignment;
+  if (alignment > 0)
+    type->alignment = alignment;
   token_t* next = parser_consume(parser);
   node_t* node = NEW_DATA(node_t);
   var_t* var = NEW_DATA(var_t);
@@ -631,11 +632,18 @@ void parse_struct_decl(parser_t* parser) {
   int size = 0;
   parser_eat(parser, TOK_LBRAC);
   parser_consume(parser);
+  int alignment = 1;
+  char* str_name = parse_str(name);
   while (parser->token->type != TOK_RBRAC) {
     node_t* node = parse_var_decl(parser, false, true);
     var_t* var = ((var_t*)node->data);
+    if (!strcmp(var->type->type->name, str_name) && !var->type->is_pointer) {
+      parser_error(parser, "Cannot initialise a variable whose type is the structure its being defined in.");
+      return;
+    }
     free(node);
     list_add(type->members, var);
+    if (var->type->alignment > alignment) alignment = var->type->alignment;
     if (var->type->is_pointer) {
       size += 8;
     } else if (var->type->is_arr) {
@@ -651,4 +659,6 @@ void parse_struct_decl(parser_t* parser) {
   }
   parser_consume(parser); // eat }
   type->size = size;
+  type->alignment = alignment;
+  if (!packed) type->size = ALIGN_UP(size, alignment);
 }

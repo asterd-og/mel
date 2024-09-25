@@ -1,40 +1,22 @@
 import "cast.mh";
 import "lib.mh";
 
-struct PageMap {
+struct Ptr {
   var Addr: u64;
 }
 
-var GLBPM: *PageMap;
-
-fn VmAlloc(var PM: *PageMap, var Pages: u64, var Flags: u64): *u8 {
-  var VAddr: u64 = PM.Addr;
-  PM.Addr += 4096;
-  ret <*u8>VAddr;
+struct test {
+  var Table: Ptr[8];
 }
 
-fn VmGetPM(): *PageMap {
-  ret GLBPM;
-}
-
-fn Test(): void {
-  ret;
+struct [packed] sdt {
+  var Sign: char;
+  var Lol: u32;
+  var Test2: u64;
 }
 
 fn main(): int {
-  GLBPM = allocMem(8);
-  GLBPM.Addr = 0x1000;
-  if (1 == 1) {
-    var K: u64 = 4;
-  } else {
-    var X: u64 = 9;
-    for (var i: int = 0;i < 10; i += 1) {
-      var L: u64 = X;
-    }
-  }
-  for (var i: int = 0; i < 50000; i += 1) {
-    var Ptr: *u8 = VmAlloc(VmGetPM(), 1, 1 | 2);
-    printFmt("%d: Allocated at %lx\n", i, Ptr);
-  }
+  printFmt("%d\n", sizeof test);
+  printFmt("%d\n", sizeof sdt);
   ret 0;
 }
