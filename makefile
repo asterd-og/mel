@@ -32,7 +32,7 @@ clean:
 .PHONY: clean
 
 run:
-	./out/mel -o test.o tests/test.mel
+	./out/mel tests/test.mel test
 	./test
 
 install:

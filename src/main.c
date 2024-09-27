@@ -58,7 +58,7 @@ char* do_llvm(char* filename) {
 
 char* do_link(char* out_fname, char** in_fname) {
   char cmd[4096];
-  sprintf(cmd, "ld");
+  sprintf(cmd, "clang");
   while (*in_fname) {
     sprintf(cmd, "%s %s", cmd, *in_fname);
     in_fname++;
@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
     usage(argv[0]);
   }
   char* out_fname = NULL;
-  bool link = false;
+  bool link = true;
   bool freestanding = false;
   int i = 1;
   if (argv[1][0] == '-') {
