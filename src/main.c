@@ -116,6 +116,12 @@ int main(int argc, char** argv) {
   }
   if (!out_fname) {
     out_fname = argv[argc - 1];
+    for (int k = i; k < argc - 1; k++) {
+      if (!strcmp(argv[k], out_fname)) {
+        fprintf(stderr, "Mel: Error: Trying to output into an input file.\n");
+        exit(1);
+      }
+    }
     argc--;
   }
   if (argc - i - 1 > 2) {

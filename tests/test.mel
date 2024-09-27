@@ -1,6 +1,7 @@
 import "io.mh";
 
 fn main(): int {
-  printFmt("Hello world!\n");
+  var hey: int = 99;
+  printFmt("Hello world! %d\n", -hey);
   ret 0;
 }

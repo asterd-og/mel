@@ -420,6 +420,10 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       val = backend_gen_dif(var, ty, first_ty, current_ty->_signed);
       break;
     }
+    case NODE_NEG:
+      val = builder.CreateNeg(lhs);
+      if (!ty) ty = val->getType();
+      break;
     case NODE_FN_CALL:
       val = backend_gen_fn_call(node);
       if (ty) val = backend_gen_dif(val, val->getType(), ty, current_ty->_signed);
