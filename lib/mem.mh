@@ -1,0 +1,2 @@
+fn allocMem(var size: u64): *u64;
+fn freeMem(var ptr: *u64): void;

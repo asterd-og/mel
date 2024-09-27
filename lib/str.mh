@@ -1,0 +1,4 @@
+fn strLen(var str: *char): int;
+fn toChar(var num: char): int;
+fn strToInt(var str: *char): int;
+fn chrIsNum(var chr: char): int;

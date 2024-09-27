@@ -1,0 +1,7 @@
+fn print(var fmt: *char): void;
+fn printInt(var num: u64): void;
+fn printChar(var chr: char): void;
+fn printFmt(var fmt: *char, ...): u64;
+fn getInput(var buf: *char, var size: int): *char;
+fn printBin(var num: u64, var bits: int): void;
+fn StrPrintFmt(var buffer: *char, var fmt: *char, ...): int;

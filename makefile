@@ -32,17 +32,8 @@ clean:
 .PHONY: clean
 
 run:
-	./out/mel tests/test.mel test.o
-	clang test.o lib/mlib.a -o test
+	./out/mel -o test.o tests/test.mel
 	./test
-
-comp:
-	llc -filetype=obj out.ll -o test.o -opaque-pointers
-	clang test.o lib/mlib.a -o test
-	./test
-
-compAsm:
-	llc out.ll -o test.s
 
 install:
 	sudo mkdir -p /usr/mel/include

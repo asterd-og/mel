@@ -20,7 +20,7 @@ int printFmt(char* fmt, ...) {
   return ret;
 }
 
-int StrPrintFmt(char* buffer, char* fmt, ...) {
+int strPrintFmt(char* buffer, char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   int ret = vsprintf(buffer, fmt, ap);
@@ -28,12 +28,8 @@ int StrPrintFmt(char* buffer, char* fmt, ...) {
   return ret;
 }
 
-int StrToInt(char* str) {
+int strToInt(char* str) {
   return atoi(str);
-}
-
-int ChrIsNum(char chr) {
-  return (chr >= '0' && chr <= '9');
 }
 
 int strLen(char* str) {

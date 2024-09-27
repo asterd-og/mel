@@ -1,9 +1,6 @@
-import "cast.mh";
-import "lib.mh";
+import "io.mh";
 
 fn main(): int {
-  printFmt("He%cy\n", '\n');
-  printFmt("He%cy\n", '\b');
-  printFmt("H%cy\n", 'e');
+  printFmt("Hello world!\n");
   ret 0;
 }
