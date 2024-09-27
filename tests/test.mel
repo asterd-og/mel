@@ -1,22 +1,9 @@
 import "cast.mh";
 import "lib.mh";
 
-struct Ptr {
-  var Addr: u64;
-}
-
-struct test {
-  var Table: Ptr[8];
-}
-
-struct [packed] sdt {
-  var Sign: char;
-  var Lol: u32;
-  var Test2: u64;
-}
-
 fn main(): int {
-  printFmt("%d\n", sizeof test);
-  printFmt("%d\n", sizeof sdt);
+  printFmt("He%cy\n", '\n');
+  printFmt("He%cy\n", '\b');
+  printFmt("H%cy\n", 'e');
   ret 0;
 }

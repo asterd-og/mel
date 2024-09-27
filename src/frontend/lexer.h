@@ -11,6 +11,7 @@ enum {
   TOK_ID,
   TOK_STRING,
   TOK_NUM,
+  TOK_CHAR,
 
   TOK_LPAR,
   TOK_RPAR,

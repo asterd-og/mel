@@ -368,6 +368,33 @@ node_t* parse_factor(parser_t* parser) {
       node->value = parse_num(tok);
       node->tok = tok;
       break;
+    case TOK_CHAR: {
+      node = NEW_DATA(node_t);
+      memset(node, 0, sizeof(node_t));
+      node->type = NODE_INT;
+      char chr;
+      if (tok->text[tok->text_len - 2] == '\\') {
+        switch (tok->text[tok->text_len - 1]) {
+          case 'a': chr = '\a'; break;
+          case 'b': chr = '\b'; break;
+          case 'f': chr = '\f'; break;
+          case 'v': chr = '\v'; break;
+          case 'n': chr = '\n'; break;
+          case 't': chr = '\t'; break;
+          case 'r': chr = '\r'; break;
+          default: chr = tok->text[tok->text_len - 1];
+        }
+      } else {
+        if (tok->text[tok->text_len - 1] == '\\') {
+          parser_error(parser, "Invalid character literal.");
+          return NULL;
+        }
+        chr = tok->text[tok->text_len - 1];
+      }
+      node->value = chr;
+      node->tok = tok;
+      break;
+    }
     case TOK_STRING:
       node = NEW_DATA(node_t);
       memset(node, 0, sizeof(node_t));

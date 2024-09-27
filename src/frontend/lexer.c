@@ -11,6 +11,7 @@ const char* type_to_str[] = {
   "TOK_ID",
   "TOK_STRING",
   "TOK_NUM",
+  "TOK_CHAR",
   "TOK_LPAR",
   "TOK_RPAR",
   "TOK_LBRAC",
@@ -199,6 +200,19 @@ void lexer_advance(lexer_t* l) {
       } while (isalnum(l->c) || l->c == '_');
       int kw = lexer_get_kw(l, start, l->source + l->position.raw);
       list_add(l->tok_list, lexer_create_token(l, (kw > 0 ? kw : TOK_ID), start));
+      break;
+    }
+    case '\'': {
+      l->position.raw++;
+      l->position.col++;
+      char* start = l->source + l->position.raw;
+      do {
+        l->position.col++;
+        l->c = l->source[++l->position.raw];
+      } while (l->c != '\'');
+      list_add(l->tok_list, lexer_create_token(l, TOK_CHAR, start));
+      l->position.raw++;
+      l->position.col++;
       break;
     }
     case '"': {
