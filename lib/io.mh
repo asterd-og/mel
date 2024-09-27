@@ -1,7 +1,18 @@
+struct file {
+  var fd: int;
+  var size: u64;
+}
+
 fn print(var fmt: *char): void;
 fn printInt(var num: u64): void;
 fn printChar(var chr: char): void;
 fn printFmt(var fmt: *char, ...): u64;
 fn getInput(var buf: *char, var size: int): *char;
 fn printBin(var num: u64, var bits: int): void;
-fn StrPrintFmt(var buffer: *char, var fmt: *char, ...): int;
+fn strPrintFmt(var buffer: *char, var fmt: *char, ...): int;
+
+fn fileOpen(var name: *char, var mode: *char): *file;
+fn fileRead(var fp: *file, var buf: *u8, var count: u64): int;
+fn fileWrite(var fp: *file, var buf: *u8, var count: u64): int;
+fn fileSeek(var fp: *file, var offset: u64): u64;
+fn fileClose(var fp: *file): int;

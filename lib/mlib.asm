@@ -67,3 +67,4 @@ freeMem:
 LC0: db `%ld`,0
 LC1: db `%c`,0
 
+section .note.GNU-stack noalloc noexec nowrite progbits

@@ -1,0 +1,60 @@
+import "io.mh";
+import "mem.mh";
+
+fn __mlib_open(var name: *char, var mode: int): int;
+fn __mlib_get_size(var fd: int): i64;
+fn __mlib_read(var fd: int, var buf: *u8, var count: u64): i64;
+fn __mlib_write(var fd: int, var buf: *u8, var count: u64): i64;
+fn __mlib_lseek(var fd: int, var offset: u64, var whence: int): i64;
+fn __mlib_close(var fd: int): int;
+
+fn fileOpen(var name: *char, var mode: *char): *file {
+  var flags: int = 0;
+  if (mode[0] == 'r' || mode[0] == 'R') {
+    flags = 0;
+  } else if (mode[0] == 'w' || mode[0] == 'W') {
+    flags = 1;
+  } else {
+    ret <*file>0;
+  }
+  if (mode[1] == 'r' || mode[1] == 'R') {
+    if (flags == 1) {
+      flags = 2;
+    } else {
+      ret <*file>0;
+    }
+  } else if (mode[1] == 'w' || mode[1] == 'W') {
+    if (flags == 0) {
+      flags = 2;
+    } else {
+      ret <*file>0;
+    }
+  }
+  var fd: int = __mlib_open(name, flags);
+  if (fd < 0) ret <*file>0;
+  var size: i64 = __mlib_get_size(fd);
+  if (size < 0) ret <*file>0;
+  var fp: *file = allocMem(sizeof file);
+  fp.fd = fd;
+  fp.size = size;
+  ret fp;
+}
+
+fn fileRead(var fp: *file, var buf: *u8, var count: u64): i64 {
+  ret __mlib_read(fp.fd, buf, count);
+}
+
+fn fileWrite(var fp: *file, var buf: *u8, var count: u64): i64 {
+  ret __mlib_write(fp.fd, buf, count);
+}
+
+fn fileSeek(var fp: *file, var offset: u64): u64 {
+  ret __mlib_lseek(fp.fd, offset, 0);
+}
+
+fn fileClose(var fp: *file): int {
+  if (!fp) ret 0;
+  var fd: int = fp.fd;
+  freeMem(fp);
+  ret __mlib_close(fd);
+}

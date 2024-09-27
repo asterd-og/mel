@@ -1,7 +1,15 @@
 import "io.mh";
 
 fn main(): int {
-  var hey: int = 99;
-  printFmt("Hello world! %d\n", -hey);
+  var fp: *file = fileOpen("tests/file.txt", "rw");
+  if (!fp) {
+    printFmt("Couldnt open file file.txt\n");
+    ret 1;
+  }
+  var buf: char[256];
+  for (var i: int = 0; i < 64; i += 1) buf[i] = 'b';
+  fileSeek(fp, 64);
+  fileWrite(fp, buf, 64);
+  fileClose(fp);
   ret 0;
 }
