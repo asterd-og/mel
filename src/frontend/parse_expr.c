@@ -402,6 +402,14 @@ node_t* parse_factor(parser_t* parser) {
       node->tok = tok;
       break;
     }
+    case TOK_FALSE:
+    case TOK_TRUE:
+      node = NEW_DATA(node_t);
+      memset(node, 0, sizeof(node_t));
+      node->type = NODE_INT;
+      node->value = (tok->type == TOK_TRUE);
+      node->tok = tok;
+      break;
     case TOK_STRING:
       node = NEW_DATA(node_t);
       memset(node, 0, sizeof(node_t));

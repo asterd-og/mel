@@ -70,6 +70,8 @@ enum {
   TOK_BREAK,
   TOK_CONTINUE,
   TOK_SIZEOF,
+  TOK_FALSE,
+  TOK_TRUE,
 };
 
 typedef struct {

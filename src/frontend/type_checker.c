@@ -5,13 +5,14 @@
 
 basetype_t* u8, *u16, *u32, *u64;
 basetype_t* i8, *i16, *i32, *i64, *_void;
-basetype_t* f32, *f64;
+basetype_t* f32, *f64, *_bool;
 
 type_t* ty_u64;
 
 type_checker_t* type_checker_create() {
   type_checker_t* tychk = (type_checker_t*)malloc(sizeof(type_checker_t));
   tychk->types_hm = hashmap_create(150, 5);
+  NEW_TYPE(_bool, "bool", 5, 1, 1, false, false)
   NEW_TYPE(u8, "u8", 3, 1, 1, false, false)
   NEW_TYPE(i8, "i8", 3, 1, 1, true, false)
 
@@ -26,6 +27,7 @@ type_checker_t* type_checker_create() {
   NEW_TYPE(_void, "void", 5, 0, 0, false, false)
   NEW_TYPE(f32, "f32", 4, 4, 4, true, true)
   NEW_TYPE(f64, "f64", 4, 8, 8, true, true)
+  hashmap_add(tychk->types_hm, "bool", _bool);
   hashmap_add(tychk->types_hm, "u8", u8);   hashmap_add(tychk->types_hm, "i8", i8);
   hashmap_add(tychk->types_hm, "u16", u16); hashmap_add(tychk->types_hm, "i16", i16);
   hashmap_add(tychk->types_hm, "u32", u32); hashmap_add(tychk->types_hm, "i32", i32);

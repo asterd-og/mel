@@ -2,8 +2,6 @@ TODO:
 
 Implement Align for structs (not only variables)
 
-Float numbers
-
 Error the user if array dimension difference
 Check if dereferencing pointer is the same type
 

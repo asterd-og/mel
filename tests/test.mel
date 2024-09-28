@@ -1,22 +1,7 @@
 import "io.mh";
 
-fn sqrt(var num: f64): f64 {
-  if (num < 0) {
-    printFmt("Use apenas numeros reais.\n");
-    ret 0;
-  }
-  var raiz: f64 = num / 2;
-  var precision: f64 = 0.00001;
-  while (1) {
-    var raizAntiga: f64 = raiz;
-    raiz = (raiz + num / raiz) / 2;
-    if (raiz - raizAntiga < precision && raizAntiga - raiz < precision) break;
-  }
-  ret raiz;
-}
-
 fn main(): int {
-  var num: f64 = 2;
-  printFmt("%.16f\n", sqrt(num));
+  var test: bool = false;
+  printFmt("%d\n", !test);
   ret 0;
 }
