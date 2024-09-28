@@ -36,7 +36,7 @@ token_t* parser_expect(parser_t* parser, uint8_t tok_type);
 token_t* parser_rewind(parser_t* parser);
 
 int64_t parse_num(token_t* tok);
-int64_t parse_neg(token_t* tok);
+double parse_float(token_t* tok);
 char* parse_str(token_t* tok);
 
 scope_t* parser_new_scope(parser_t* parser);

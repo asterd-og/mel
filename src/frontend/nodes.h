@@ -23,7 +23,7 @@ enum {
 
   NODE_INT, NODE_ID,
   NODE_ARRAY, NODE_STR,
-  NODE_NEG,
+  NODE_NEG, NODE_FLOAT,
 
   NODE_SKIP, // argument skip
 
@@ -57,6 +57,7 @@ typedef struct node_t {
   token_t* tok;
 
   int64_t value; // integer value in case of variable
+  double fvalue;
 
   struct node_t* lhs;
   struct node_t* rhs;
@@ -68,6 +69,7 @@ typedef struct {
   bool _struct;
   bool _signed;
   bool packed;
+  bool _float;
   int size; // in bytes
   int alignment;
   char* name;

@@ -12,6 +12,7 @@ const char* type_to_str[] = {
   "TOK_STRING",
   "TOK_NUM",
   "TOK_CHAR",
+  "TOK_FLOAT",
   "TOK_LPAR",
   "TOK_RPAR",
   "TOK_LBRAC",
@@ -169,6 +170,7 @@ void lexer_advance(lexer_t* l) {
       l->position.raw++;
       break;
     case '0'...'9': {
+      uint8_t type = TOK_NUM;
       bool hex = false;
       if (l->c == '0') {
         if (l->source[l->position.raw + 1] == 'x') {
@@ -180,12 +182,21 @@ void lexer_advance(lexer_t* l) {
       char* start = l->source + l->position.raw;
       do {
         if (hex && tolower(l->source[l->position.raw]) > 'f') {
-          lexer_error(l, "Invalid character!\n");
+          lexer_error(l, "Invalid character!");
         }
         l->position.col++;
         l->c = l->source[++l->position.raw];
-      } while (isdigit(l->c) || (hex && isalpha(l->c)));
-      token_t* tok = lexer_create_token(l, TOK_NUM, start);
+        if (l->c == '.') {
+          if (type == TOK_FLOAT) {
+            lexer_error(l, "Unexpected dot inside float.");
+          }
+          if (hex) {
+            lexer_error(l, "Unexpected dot inside hex.");
+          }
+          type = TOK_FLOAT;
+        }
+      } while (isdigit(l->c) || (hex && isalpha(l->c)) || l->c == '.');
+      token_t* tok = lexer_create_token(l, type, start);
       tok->hex = hex;
       list_add(l->tok_list, tok);
       break;

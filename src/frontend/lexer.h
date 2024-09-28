@@ -12,6 +12,7 @@ enum {
   TOK_STRING,
   TOK_NUM,
   TOK_CHAR,
+  TOK_FLOAT,
 
   TOK_LPAR,
   TOK_RPAR,

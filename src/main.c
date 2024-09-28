@@ -27,7 +27,7 @@ char* compile(char* filename) {
 
   char* cg_name;
 
-  // ast_view(parser->ast);
+  //ast_view(parser->ast);
   srand(time(NULL));
   cg_name = (char*)malloc(11); // 6 random digits (dot) ll
   uint32_t num = rand() % 999999;

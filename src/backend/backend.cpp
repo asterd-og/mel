@@ -5,6 +5,7 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
+#include <float.h>
 #include "backend.hpp"
 extern "C" {
 #include "backend.h"
@@ -127,22 +128,27 @@ Type* backend_get_llvm_type(type_t* ty) {
       bt = query->second;
     }
   } else {
-    switch (ty->type->size) {
-      case 0:
-        bt = Type::getVoidTy(context);
-        break;
-      case 1:
-        bt = Type::getInt8Ty(context);
-        break;
-      case 2:
-        bt = Type::getInt16Ty(context);
-        break;
-      case 4:
-        bt = Type::getInt32Ty(context);
-        break;
-      case 8:
-        bt = Type::getInt64Ty(context);
-        break;
+    if (ty->type->_float) {
+      if (ty->type->size == 4) bt = builder.getFloatTy();
+      else bt = builder.getDoubleTy();
+    } else {
+      switch (ty->type->size) {
+        case 0:
+          bt = Type::getVoidTy(context);
+          break;
+        case 1:
+          bt = Type::getInt8Ty(context);
+          break;
+        case 2:
+          bt = Type::getInt16Ty(context);
+          break;
+        case 4:
+          bt = Type::getInt32Ty(context);
+          break;
+        case 8:
+          bt = Type::getInt64Ty(context);
+          break;
+      }
     }
   }
   bt = backend_get_ptr_arr_mod(ty, bt);
@@ -151,7 +157,20 @@ Type* backend_get_llvm_type(type_t* ty) {
 
 Value* backend_load_int(Type* ty, int64_t val) {
   if (ty->isPointerTy()) return ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), val), ty);
+  if (ty->isFloatingPointTy()) return ConstantFP::get(ty, val);
   return ConstantInt::get(ty, val);
+}
+
+Value* backend_load_float(Type* ty, double val) {
+  if (!ty) {
+    /*if (val <= FLT_MAX) {
+      ty = builder.getFloatTy();
+    } else {
+      ty = builder.getDoubleTy();
+    }*/
+    ty = builder.getDoubleTy();
+  }
+  return ConstantFP::get(ty, val);
 }
 
 std::string unescape_string(const std::string& input) {
@@ -205,6 +224,13 @@ Type* backend_get_var_type(Value* var) {
 Value* backend_gen_dif(Value* val, Type* val_type, Type* expected_type, bool sign) {
   if (expected_type == nullptr || val_type == expected_type) {
     return val;
+  }
+  if (val_type->isFloatingPointTy()) {
+    if (expected_type->isIntegerTy()) {
+      if (sign) return builder.CreateFPToSI(val, expected_type);
+      else return builder.CreateFPToUI(val, expected_type);
+    }
+    return builder.CreateFPCast(val, expected_type);
   }
   if (!expected_type->isIntegerTy() || !val_type->isIntegerTy()) {
     return val;
@@ -295,6 +321,7 @@ Value* backend_gen_aop(int node_type, bool _signed, Value* lhs, Value* expr) {
       if (lhs->getType()->isPointerTy()) {
         ret = builder.CreateGEP(lhs->getType()->getPointerElementType(), lhs, expr);
       } else {
+        if (lhs->getType()->isFloatingPointTy()) { ret = builder.CreateFAdd(lhs, expr); break; }
         ret = builder.CreateAdd(lhs, expr);
       }
       break;
@@ -304,16 +331,19 @@ Value* backend_gen_aop(int node_type, bool _signed, Value* lhs, Value* expr) {
         Value* sub = builder.CreateSub(ConstantInt::get(backend_get_var_type(expr), 0), expr);
         ret = builder.CreateGEP(lhs->getType()->getPointerElementType(), lhs, sub);
       } else {
+        if (lhs->getType()->isFloatingPointTy()) { ret = builder.CreateFSub(lhs, expr); break; }
         ret = builder.CreateSub(lhs, expr);
       }
       break;
     }
     case NODE_ASMUL:
     case NODE_MUL:
+      if (lhs->getType()->isFloatingPointTy()) { ret = builder.CreateFMul(lhs, expr); break; }
       ret = builder.CreateMul(lhs, expr);
       break;
     case NODE_ASDIV:
     case NODE_DIV:
+      if (lhs->getType()->isFloatingPointTy()) { ret = builder.CreateFDiv(lhs, expr); break; }
       if (_signed) {
         ret = builder.CreateSDiv(lhs, expr);
       } else {
@@ -322,6 +352,7 @@ Value* backend_gen_aop(int node_type, bool _signed, Value* lhs, Value* expr) {
       break;
     case NODE_ASMOD:
     case NODE_MOD:
+      if (lhs->getType()->isFloatingPointTy()) { ret = builder.CreateFRem(lhs, expr); break; }
       if (_signed) {
         ret = builder.CreateSRem(lhs, expr);
       } else {
@@ -422,6 +453,10 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
     }
     case NODE_NEG:
       val = builder.CreateNeg(lhs);
+      if (!ty) ty = val->getType();
+      break;
+    case NODE_FLOAT:
+      val = backend_load_float(ty, node->fvalue);
       if (!ty) ty = val->getType();
       break;
     case NODE_FN_CALL:
@@ -907,9 +942,11 @@ void backend_gen_cond(node_t* cond, BasicBlock* true_block, BasicBlock* false_bl
     Value* cmp;
     switch (cond->type) {
       case NODE_EQEQ:
+        if (lhs->getType()->isFloatingPointTy()) { cmp = builder.CreateFCmpOEQ(lhs, rhs); break; }
         cmp = builder.CreateICmpEQ(lhs, rhs, "cmp");
         break;
       case NODE_GT:
+        if (lhs->getType()->isFloatingPointTy()) { cmp = builder.CreateFCmpOGT(lhs, rhs); break; }
         if (current_ty->_signed) {
           cmp = builder.CreateICmpSGT(lhs, rhs, "cmp");
         } else {
@@ -917,6 +954,7 @@ void backend_gen_cond(node_t* cond, BasicBlock* true_block, BasicBlock* false_bl
         }
         break;
       case NODE_GTEQ:
+        if (lhs->getType()->isFloatingPointTy()) { cmp = builder.CreateFCmpOGE(lhs, rhs); break; }
         if (current_ty->_signed) {
           cmp = builder.CreateICmpSGE(lhs, rhs, "cmp");
         } else {
@@ -924,6 +962,7 @@ void backend_gen_cond(node_t* cond, BasicBlock* true_block, BasicBlock* false_bl
         }
         break;
       case NODE_LT:
+        if (lhs->getType()->isFloatingPointTy()) { cmp = builder.CreateFCmpOLT(lhs, rhs); break; }
         if (current_ty->_signed) {
           cmp = builder.CreateICmpSLT(lhs, rhs, "cmp");
         } else {
@@ -931,6 +970,7 @@ void backend_gen_cond(node_t* cond, BasicBlock* true_block, BasicBlock* false_bl
         }
         break;
       case NODE_LTEQ:
+        if (lhs->getType()->isFloatingPointTy()) { cmp = builder.CreateFCmpOLE(lhs, rhs); break; }
         if (current_ty->_signed) {
           cmp = builder.CreateICmpSLE(lhs, rhs, "cmp");
         } else {
@@ -938,6 +978,7 @@ void backend_gen_cond(node_t* cond, BasicBlock* true_block, BasicBlock* false_bl
         }
         break;
       case NODE_NOTEQ:
+        if (lhs->getType()->isFloatingPointTy()) { cmp = builder.CreateFCmpONE(lhs, rhs); break; }
         cmp = builder.CreateICmpNE(lhs, rhs, "cmp");
         break;
     }

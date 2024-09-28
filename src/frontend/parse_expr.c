@@ -333,6 +333,13 @@ node_t* parse_factor(parser_t* parser) {
       node->tok = parser->token;
       node->lhs = parse_factor(parser);
       break;
+    case TOK_FLOAT:
+      node = NEW_DATA(node_t);
+      memset(node, 0, sizeof(node_t));
+      node->type = NODE_FLOAT;
+      node->fvalue = parse_float(tok);
+      node->tok = tok;
+      break;
     case TOK_MINUS:
       parser_consume(parser);
       node = NEW_DATA(node_t);

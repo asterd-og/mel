@@ -1,15 +1,22 @@
 import "io.mh";
 
-fn main(): int {
-  var fp: *file = fileOpen("tests/file.txt", "rw");
-  if (!fp) {
-    printFmt("Couldnt open file file.txt\n");
-    ret 1;
+fn sqrt(var num: f64): f64 {
+  if (num < 0) {
+    printFmt("Use apenas numeros reais.\n");
+    ret 0;
   }
-  var buf: char[256];
-  for (var i: int = 0; i < 64; i += 1) buf[i] = 'b';
-  fileSeek(fp, 64);
-  fileWrite(fp, buf, 64);
-  fileClose(fp);
+  var raiz: f64 = num / 2;
+  var precision: f64 = 0.00001;
+  while (1) {
+    var raizAntiga: f64 = raiz;
+    raiz = (raiz + num / raiz) / 2;
+    if (raiz - raizAntiga < precision && raizAntiga - raiz < precision) break;
+  }
+  ret raiz;
+}
+
+fn main(): int {
+  var num: f64 = 2;
+  printFmt("%.16f\n", sqrt(num));
   ret 0;
 }

@@ -98,15 +98,15 @@ int64_t parse_num(token_t* tok) {
   char num[tok->text_len + 1];
   strncpy(num, tok->text, tok->text_len);
   num[tok->text_len] = 0;
-  return (tok->hex ? strtol(num, NULL, 16) : atoi(num));
+  if (tok->hex) return strtol(num, NULL, 16);
+  else return atoi(num);
 }
 
-int64_t parse_neg(token_t* tok) {
-  char num[tok->text_len + 2];
-  num[0] = '-';
-  strncpy(num + 1, tok->text, tok->text_len);
-  num[tok->text_len + 1] = 0;
-  return (tok->hex ? strtol(num, NULL, 16) : atoi(num));
+double parse_float(token_t* tok) {
+  char num[tok->text_len + 1];
+  strncpy(num, tok->text, tok->text_len);
+  num[tok->text_len] = 0;
+  return strtof(num, NULL);
 }
 
 char* parse_str(token_t* tok) {
@@ -234,6 +234,10 @@ type_t* parser_get_type(parser_t* parser) {
   }
   if (bt == NULL) {
     parser_error(parser, "Unknown type '%.*s'.", type_tok->text_len, type_tok->text);
+    return NULL;
+  }
+  if (bt->_float && !_signed) {
+    parser_error(parser, "Floating types cannot be unsigned.");
     return NULL;
   }
   // FIXME:

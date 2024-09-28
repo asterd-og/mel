@@ -6,9 +6,10 @@
 #include "lexer.h"
 #include "nodes.h"
 
-#define NEW_TYPE(ty, _name, nlen, _size, _alignment, signed_)\
+#define NEW_TYPE(ty, _name, nlen, _size, _alignment, signed_, float_)\
   ty = (basetype_t*)malloc(sizeof(basetype_t));\
   ty->_struct = false;\
+  ty->_float = float_;\
   ty->size = _size;\
   ty->alignment = _alignment;\
   ty->_signed = signed_;\
