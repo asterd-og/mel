@@ -166,10 +166,12 @@ int main(int argc, char** argv) {
   }
   if (link) {
     if (link_lib) {
+      if (!freestanding) obj_cnt++;
       for (i = 0; i < lib_idx; i++) {
         in_fnames[obj_cnt + i] = lib_names[i];
         in_fnames[obj_cnt + i + 1] = NULL;
       }
+      if (!freestanding) obj_cnt--;
       do_link(out_fname, in_fnames);
     } else {
       do_link(out_fname, in_fnames);
