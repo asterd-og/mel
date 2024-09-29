@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
+#include <unistd.h>
 #include "list.h"
 #include "hashmap.h"
 #include "file.h"
@@ -77,7 +78,17 @@ void usage(char* name) {
   fprintf(stderr, "  -c generate object files but don't link them\n");
   fprintf(stderr, "  -f generate free standing object file\n");
   fprintf(stderr, "  -o outfile, produce the output file\n");
+  fprintf(stderr, "  -l links the object file with a library\n");
   exit(1);
+}
+
+char* find_lib(char* name) {
+  char* path = (char*)malloc(256);
+  sprintf(path, "/usr/mel/lib/lib%s.a", name);
+  if (access(path, F_OK) == 0) return path;
+  fprintf(stderr, "Mel: Error: No lib named '%s' found.\n", name);
+  exit(1);
+  return NULL;
 }
 
 int main(int argc, char** argv) {
@@ -88,6 +99,9 @@ int main(int argc, char** argv) {
   char* out_fname = NULL;
   bool link = true;
   bool freestanding = false;
+  char* lib_names[100];
+  int lib_idx = 0;
+  bool link_lib = false;
   int i = 1;
   if (argv[1][0] == '-') {
     for (i = 1; i < argc; i++) {
@@ -98,6 +112,10 @@ int main(int argc, char** argv) {
       // For each option in this argument
       for (int j = 1; (*argv[i] == '-') && argv[i][j]; j++) {
         switch (argv[i][j]) {
+          case 'l':
+            link_lib = true;
+            lib_names[lib_idx++] = find_lib(argv[++i]);
+            break;
 	        case 'o':
 	          out_fname = argv[++i];	// Save & skip to next argument
 	          break;
@@ -142,17 +160,32 @@ int main(int argc, char** argv) {
   }
   if (!freestanding) {
     char* lib = (char*)malloc(64);
-    strcpy(lib, "/usr/mel/lib/lib.a");
+    strcpy(lib, "/usr/mel/lib/libstd.a");
     in_fnames[obj_cnt] = lib;
     in_fnames[obj_cnt + 1] = NULL;
   }
   if (link) {
-    do_link(out_fname, in_fnames);
+    if (link_lib) {
+      for (i = 0; i < lib_idx; i++) {
+        in_fnames[obj_cnt + i] = lib_names[i];
+        in_fnames[obj_cnt + i + 1] = NULL;
+      }
+      do_link(out_fname, in_fnames);
+    } else {
+      do_link(out_fname, in_fnames);
+    }
     for (i = 0; i < obj_cnt; i++) {
       remove(in_fnames[i]);
     }
   } else {
-    rename(in_fnames[0], out_fname);
+    if (link_lib) {
+      lib_names[lib_idx] = in_fnames[0];
+      lib_names[lib_idx + 1] = NULL;
+      do_link(out_fname, lib_names);
+      remove(in_fnames[0]);
+    } else {
+      rename(in_fnames[0], out_fname);
+    }
   }
   return 0;
 }

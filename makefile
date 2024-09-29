@@ -32,12 +32,12 @@ clean:
 .PHONY: clean
 
 run:
-	./out/mel tests/test.mel test
+	./out/mel -f -l std tests/test.mel test
 	./test
 
 install:
 	sudo mkdir -p /usr/mel/include
 	sudo mkdir -p /usr/mel/lib
 	sudo cp lib/*.mh /usr/mel/include
-	sudo cp lib/lib.a /usr/mel/lib
+	sudo cp lib/lib.a /usr/mel/lib/libstd.a
 	sudo cp out/mel /usr/bin

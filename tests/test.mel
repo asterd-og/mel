@@ -1,7 +1,7 @@
 import "io.mh";
 
 fn main(): int {
-  var test: bool = false;
-  printFmt("%d\n", !test);
+  var num: u64 = 2;
+  printFmt("%d\n", num);
   ret 0;
 }
