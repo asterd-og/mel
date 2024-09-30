@@ -1,7 +1,7 @@
 import "io.mh";
+import "testHeader.mh";
 
 fn main(): int {
-  var num: u64 = 2;
-  printFmt("%d\n", num);
+  printFmt("%d\n", add(5, add(5, 5)));
   ret 0;
 }

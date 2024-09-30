@@ -13,6 +13,8 @@
 #include "frontend/ast_viewer.h"
 #include "backend/backend.h"
 
+uint32_t last_random = 0;
+
 char* compile(char* filename) {
   char* file = open_file(filename);
   if (!file) {
@@ -30,9 +32,10 @@ char* compile(char* filename) {
 
   //ast_view(parser->ast);
   srand(time(NULL));
-  cg_name = (char*)malloc(11); // 6 random digits (dot) ll
-  uint32_t num = rand() % 999999;
-  sprintf(cg_name, "%d.ll", num);
+  cg_name = (char*)malloc(32); // 6 random digits (dot) ll
+  if (last_random == 0) last_random = rand() % 999999;
+  else last_random++;
+  sprintf(cg_name, "%d.ll", last_random);
 
   backend_gen(parser->ast, false, cg_name);
 
@@ -45,9 +48,8 @@ char* compile(char* filename) {
 
 char* do_llvm(char* filename) {
   srand(time(NULL));
-  char* obj_name = (char*)malloc(11); // 6 random digits (dot) ll
-  uint32_t num = rand() % 999999;
-  sprintf(obj_name, "%d.o", num);
+  char* obj_name = (char*)malloc(32);
+  sprintf(obj_name, "%s.o", filename);
   char* command = (char*)malloc(256);
   sprintf(command, "llc --code-model=medium -filetype=obj %s -o %s -opaque-pointers", filename, obj_name);
   int status = system(command);
@@ -65,6 +67,7 @@ char* do_link(char* out_fname, char** in_fname) {
     in_fname++;
   }
   sprintf(cmd, "%s -o %s", cmd, out_fname);
+  printf("%s\n", cmd);
   int status = system(cmd);
   if (status != 0) {
     return NULL;

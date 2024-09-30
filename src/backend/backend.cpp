@@ -15,7 +15,7 @@ extern "C" {
 using namespace llvm;
 
 LLVMContext context;
-Module module("module", context);
+Module* module;
 IRBuilder<> builder(context);
 
 Function* current_fn = nullptr;
@@ -205,7 +205,7 @@ Value* backend_load_str(Type* ty, char* str, int len) {
   }
   auto init = ConstantArray::get(ArrayType::get(builder.getInt8Ty(), chars.size()),
                                  chars);
-  GlobalVariable * v = new GlobalVariable(module, init->getType(), true, GlobalVariable::ExternalLinkage,
+  GlobalVariable * v = new GlobalVariable(*module, init->getType(), true, GlobalVariable::ExternalLinkage,
     init,
     str);
   return ConstantExpr::getBitCast(v, ty);
@@ -470,7 +470,9 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       break;
     case NODE_FN_CALL:
       val = backend_gen_fn_call(node);
-      if (ty && (!ty->isStructTy() && !ty->isPointerTy())) val = backend_gen_dif(val, val->getType(), ty, current_ty->_signed);
+      if (ty && !ty->isVoidTy())
+        if (!(ty->isStructTy() && !ty->isPointerTy()))
+          val = backend_gen_dif(val, val->getType(), ty, (current_ty ? current_ty->_signed : false));
       ty = val->getType();
       break;
     case NODE_ARR_IDX: {
@@ -576,7 +578,7 @@ void backend_gen_fn_def(node_t* node) {
       params.push_back(backend_get_llvm_type(((var_t*)node->data)->type));
     }
     FunctionType* fn_type = FunctionType::get(backend_get_llvm_type(fn_node->type), params, vararg);
-    fn = Function::Create(fn_type, Function::ExternalLinkage, name, &module);
+    fn = Function::Create(fn_type, Function::ExternalLinkage, name, module);
     fn_map[std::string(name)] = fn;
   } else {
     fn = fn_map.find(name)->second;
@@ -648,7 +650,7 @@ void backend_gen_var_def(node_t* node) {
       ((AllocaInst*)var)->setAlignment(Align(alignment));
     builder.SetInsertPoint(current_block);
   } else {
-    auto glob = (&module)->getOrInsertGlobal(name, type);
+    auto glob = module->getOrInsertGlobal(name, type);
     var = glob;
     if (var_node->external) {
       ((GlobalVariable*)var)->setLinkage(GlobalVariable::ExternalLinkage);
@@ -1239,6 +1241,7 @@ void backend_gen_stmt(node_t* node) {
 
 extern "C" void backend_gen(list_t* ast, bool print_ir, char* out) {
   current_scope = nullptr;
+  module = new Module("module", context);
   backend_new_scope();
   for (list_item_t* item = ast->head->next; item != ast->head; item = item->next) {
     backend_gen_stmt((node_t*)item->data);
@@ -1246,7 +1249,7 @@ extern "C" void backend_gen(list_t* ast, bool print_ir, char* out) {
 
   std::string buffer;
   raw_string_ostream stream(buffer);
-  module.print(stream, nullptr);
+  module->print(stream, nullptr);
 
   if (print_ir) {
     outs()<<buffer<<"\n";
@@ -1255,4 +1258,19 @@ extern "C" void backend_gen(list_t* ast, bool print_ir, char* out) {
   std::ofstream ll(out);
   ll << stream.str() << std::endl;
   ll.close();
+
+  current_fn = nullptr;
+  fn_ret = false;
+  inside_scope = 0;
+  current_ty = nullptr;
+  entry_block = nullptr;
+  current_block = nullptr;
+  step_block = nullptr;
+  end_block = nullptr;
+  scheduled_br = nullptr;
+  should_br = true;
+  fn_map.clear();
+  entry_br = nullptr;
+  current_scope = nullptr;
+  type_map.clear();
 }

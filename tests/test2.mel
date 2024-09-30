@@ -1,0 +1,5 @@
+import "testHeader.mh";
+
+fn add(var x: int, var y: int): int {
+  ret x + y;
+}

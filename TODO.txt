@@ -15,6 +15,9 @@ Assertions
 ========================
 Code Gen TODO:
 
+Fix pointer assingment incrementation
+Ptr += 1
+
 Structure initialisation (maybe)
 
 referencing & dereferencing to each other (not my priority rn)
