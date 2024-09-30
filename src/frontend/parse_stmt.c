@@ -28,6 +28,7 @@ node_t* parse_internal_arr_idx(parser_t* parser, type_t* type) {
     parser_expect(parser, TOK_RSQBR);
     list_add(idx_list, expr);
   }
+  parser_current_ty = type;
   node_t* node = NEW_DATA(node_t);
   node->lhs = NULL; node->rhs = NULL;
   node->type = NODE_ARR_IDX;

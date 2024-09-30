@@ -117,7 +117,8 @@ void expr_or_arr_view(node_t* node) {
 
 void type_view(type_t* ty) {
   if (ty->is_pointer) {
-    printf("%*s", ty->ptr_cnt, "*");
+    for (int i = 0; i < ty->ptr_cnt; i++)
+      printf("*");
   }
   if (ty->_signed != ty->type->_signed) {
     printf("%s ", (ty->_signed ? "signed" : "unsigned"));

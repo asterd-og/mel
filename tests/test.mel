@@ -1,7 +1,16 @@
 import "io.mh";
 import "testHeader.mh";
+import "mem.mh";
 
 fn main(): int {
-  printFmt("%d\n", add(5, add(5, 5)));
+  var Entries: **char = <**char>allocMem(8 * 8);
+  Entries[0] = <**char>allocMem(64);
+  Entries[0][0] = 'h';
+  Entries[0][1] = 'e';
+  Entries[0][2] = 'l';
+  Entries[0][3] = 'l';
+  Entries[0][4] = 'o';
+  Entries[0][5] = 0;
+  printFmt("%s\n", Entries[0]);
   ret 0;
 }

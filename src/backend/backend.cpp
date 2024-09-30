@@ -283,13 +283,13 @@ std::tuple<Type*,Value*> backend_arr_gep(Type* ty, node_t* node, Value* var) {
   if (ty->isPointerTy()) {
     is_pointer = true;
     pointer = builder->CreateLoad(arr_type, alloca);
-    arr_type = arr_type->getPointerElementType();
   }
   Value* element_ptr;
   for (list_item_t* expr = expr_list->head->next; expr != expr_list->head; expr = expr->next) {
     idx = backend_gen_expr(builder->getInt64Ty(), (node_t*)expr->data);
     if (is_pointer) {
-      element_ptr = builder->CreateGEP(arr_type, pointer, idx);
+      element_ptr = builder->CreateGEP(arr_type->getPointerElementType(), pointer, idx);
+      element_ptr->print(outs());outs()<<"\n";
     } else {
       element_ptr = builder->CreateGEP(arr_type, alloca, { builder->getInt64(0), idx });
     }
@@ -299,7 +299,11 @@ std::tuple<Type*,Value*> backend_arr_gep(Type* ty, node_t* node, Value* var) {
     } else {
       if (expr->next != expr_list->head) {
         arr_type = arr_type->getPointerElementType();
+        arr_type->print(outs());outs()<<"\n";
         pointer = builder->CreateLoad(arr_type, alloca); // TODO: Test this later.
+        pointer->print(outs());outs()<<"\n";
+      } else {
+        arr_type = arr_type->getPointerElementType();
       }
     }
   }
