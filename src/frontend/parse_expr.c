@@ -313,6 +313,13 @@ node_t* parse_factor(parser_t* parser) {
         if (set_type)
           parser_current_ty->is_pointer = true;
       }
+      if (parser_current_ty->type->_struct) {
+        if (!obj->type->type->_struct) {
+          parser_error(parser, "Type incoherence between %s and structure %s.\n", obj->type->type->name,
+            parser_current_ty->type->name);
+          return NULL;
+        }
+      }
       node = parse_id(parser, parser_current_ty);
       parser_rewind(parser);
       break;

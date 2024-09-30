@@ -231,6 +231,12 @@ Value* backend_gen_dif(Value* val, Type* val_type, Type* expected_type, bool sig
       else return builder.CreateFPToUI(val, expected_type);
     }
     return builder.CreateFPCast(val, expected_type);
+  } else if (expected_type->isFloatingPointTy()) {
+    if (val_type->isIntegerTy()) {
+      if (sign) return builder.CreateSIToFP(val, expected_type);
+      else return builder.CreateUIToFP(val, expected_type);
+    }
+    return builder.CreateFPCast(val, expected_type);
   }
   if (!expected_type->isIntegerTy() || !val_type->isIntegerTy()) {
     return val;
@@ -452,7 +458,10 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       break;
     }
     case NODE_NEG:
-      val = builder.CreateNeg(lhs);
+      if (ty && ty->isFloatingPointTy())
+        val = builder.CreateFNeg(lhs);
+      else
+        val = builder.CreateNeg(lhs);
       if (!ty) ty = val->getType();
       break;
     case NODE_FLOAT:
@@ -461,7 +470,7 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       break;
     case NODE_FN_CALL:
       val = backend_gen_fn_call(node);
-      if (ty) val = backend_gen_dif(val, val->getType(), ty, current_ty->_signed);
+      if (ty && (!ty->isStructTy() && !ty->isPointerTy())) val = backend_gen_dif(val, val->getType(), ty, current_ty->_signed);
       ty = val->getType();
       break;
     case NODE_ARR_IDX: {
@@ -507,6 +516,14 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
         val = builder.CreateIntToPtr(lhs, dty);
       } else if (!pty->is_pointer && (backend_get_var_type(lhs)->isPointerTy())) {
         val = builder.CreatePtrToInt(lhs, dty);
+      } else if (pty->type->_float) {
+        // TODO: Test this
+        if (backend_get_var_type(lhs)->isIntegerTy()) {
+          if (current_ty->_signed) val = builder.CreateSIToFP(lhs, dty);
+          else val = builder.CreateUIToFP(lhs, dty);
+        } else {
+          val = builder.CreateFPCast(val, dty);
+        }
       } else {
         val = builder.CreateIntCast(lhs, dty, pty->_signed);
       }
