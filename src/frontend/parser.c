@@ -206,7 +206,6 @@ type_t* parser_get_type(parser_t* parser) {
       ptr_cnt++;
       parser_consume(parser);
     }
-    printf("%d\n", ptr_cnt);
     first_tok = parser->token;
     type_tok = first_tok;
   }
