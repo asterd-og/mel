@@ -433,3 +433,10 @@ void parser_parse(parser_t* parser) {
 exit:
 ;
 }
+
+void parser_destroy(parser_t* parser) {
+  hashmap_destroy_free_items(parser->glb_obj);
+  list_destroy(parser->ast, false);
+  free(parser->scope);
+  free(parser);
+}

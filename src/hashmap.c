@@ -104,3 +104,16 @@ void hashmap_destroy(hashmap_t* hm) {
   free(hm->table);
   free(hm);
 }
+
+void hashmap_destroy_free_items(hashmap_t* hm) {
+  for (uint64_t i = 0; i < hm->size; i++) {
+    if (hm->table[i].entries == NULL || hm->table[i].collisions == 0) continue;
+    for (uint64_t j = 0; j < hm->table[i].collisions; j++) {
+      free(hm->table[i].entries[j].data);
+      free(hm->table[i].entries[j].key);
+    }
+    free(hm->table[i].entries);
+  }
+  free(hm->table);
+  free(hm);
+}

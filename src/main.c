@@ -14,32 +14,41 @@
 #include "backend/backend.h"
 
 uint32_t last_random = 0;
+bool verbose = false;
 
 char* compile(char* filename) {
   char* file = open_file(filename);
   if (!file) {
     printf("mel: Error: Error while opening file '%s'.\n", filename);
-    return 1;
+    if (access(filename, F_OK) != 0) printf("Mel: File doesn't exist.\n");
+    return NULL;
   }
 
   lexer_t* lexer = lexer_create(file, filename);
+  if (verbose) fprintf(stderr, "Lexer: Created.\n");
   lexer_lex(lexer);
+  if (verbose) fprintf(stderr, "Lexer: Lexed.\n");
 
   parser_t* parser = parser_create(lexer);
+  if (verbose) fprintf(stderr, "Parser: Created.\n");
   parser_parse(parser);
+  if (verbose) fprintf(stderr, "Parser: Parsed.\n");
 
   char* cg_name;
 
-  //ast_view(parser->ast);
+  // ast_view(parser->ast);
   srand(time(NULL));
   cg_name = (char*)malloc(32); // 6 random digits (dot) ll
   if (last_random == 0) last_random = rand() % 999999;
   else last_random++;
   sprintf(cg_name, "%d.ll", last_random);
 
+  if (verbose) fprintf(stderr, "Generating llvm code to %s.\n", cg_name);
   backend_gen(parser->ast, false, cg_name);
+  if (verbose) fprintf(stderr, "Code generated.\n");
 
   lexer_destroy(lexer);
+  parser_destroy(parser);
 
   free(file);
 
@@ -52,9 +61,11 @@ char* do_llvm(char* filename) {
   sprintf(obj_name, "%s.o", filename);
   char* command = (char*)malloc(256);
   sprintf(command, "llc --code-model=medium -filetype=obj %s -o %s -opaque-pointers", filename, obj_name);
+  if (verbose) fprintf(stderr, "Compiling llvm IR code.\n");
   int status = system(command);
+  if (verbose) fprintf(stderr, "LLC Returned %d.\n", status);
   if (status != 0) {
-    return status;
+    return NULL;
   }
   return obj_name;
 }
@@ -67,8 +78,9 @@ char* do_link(char* out_fname, char** in_fname) {
     in_fname++;
   }
   sprintf(cmd, "%s -o %s", cmd, out_fname);
-  printf("%s\n", cmd);
+  if (verbose) fprintf(stderr, "Linking using %s.\n", cmd);
   int status = system(cmd);
+  if (verbose) fprintf(stderr, "Linker returned %d.\n", status);
   if (status != 0) {
     return NULL;
   }
@@ -82,6 +94,7 @@ void usage(char* name) {
   fprintf(stderr, "  -f generate free standing object file\n");
   fprintf(stderr, "  -o outfile, produce the output file\n");
   fprintf(stderr, "  -l links the object file with a library\n");
+  fprintf(stderr, "  -v enables verbose mode\n");
   exit(1);
 }
 
@@ -115,6 +128,9 @@ int main(int argc, char** argv) {
       // For each option in this argument
       for (int j = 1; (*argv[i] == '-') && argv[i][j]; j++) {
         switch (argv[i][j]) {
+          case 'v':
+            verbose = true;
+            break;
           case 'l':
             link_lib = true;
             lib_names[lib_idx++] = find_lib(argv[++i]);
@@ -155,7 +171,21 @@ int main(int argc, char** argv) {
   int obj_cnt = 0;
   while (i < argc) {
     llc = compile(argv[i]);
+    if (verbose) fprintf(stderr, "Compiled %s to %s.\n", argv[i], llc);
+    if (!llc) {
+      for (i = 0; i < obj_cnt; i++) {
+        remove(in_fnames[i]);
+      }
+      exit(1);
+    }
     obj = do_llvm(llc);
+    if (verbose) fprintf(stderr, "LLVM Compiled %s to %s.\n", llc, obj);
+    if (!obj) {
+      for (i = 0; i < obj_cnt; i++) {
+        remove(in_fnames[i]);
+      }
+      exit(1);
+    }
     in_fnames[obj_cnt++] = obj;
     in_fnames[obj_cnt] = NULL;
     remove(llc);
@@ -176,8 +206,10 @@ int main(int argc, char** argv) {
       }
       if (!freestanding) obj_cnt--;
       do_link(out_fname, in_fnames);
+      if (verbose) fprintf(stderr, "Linked to %s.\n", out_fname);
     } else {
       do_link(out_fname, in_fnames);
+      if (verbose) fprintf(stderr, "Linked to %s.\n", out_fname);
     }
     for (i = 0; i < obj_cnt; i++) {
       remove(in_fnames[i]);
@@ -187,9 +219,11 @@ int main(int argc, char** argv) {
       lib_names[lib_idx] = in_fnames[0];
       lib_names[lib_idx + 1] = NULL;
       do_link(out_fname, lib_names);
+      if (verbose) fprintf(stderr, "Linked to %s.\n", out_fname);
       remove(in_fnames[0]);
     } else {
       rename(in_fnames[0], out_fname);
+      if (verbose) fprintf(stderr, "Renamed to %s.\n", out_fname);
     }
   }
   return 0;

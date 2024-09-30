@@ -140,6 +140,7 @@ node_t* parse_struct_acc(parser_t* parser, type_t* type) {
   // Gotta end in =
   node_t* lhs;
   id_type = type;
+  parser_current_ty = type;
   if (parser_peek(parser)->type != TOK_LSQBR) {
     lhs = NEW_DATA(node_t);
     lhs->lhs = NULL; lhs->rhs = NULL;

@@ -16,11 +16,13 @@ node_t* parse_add_expr(parser_t* parser) {
         parser_consume(parser);
         rhs = parse_term(parser);
         temp = NEW_DATA(node_t);
+        memset(temp, 0, sizeof(node_t));
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
           temp->value = lhs->value + rhs->value;
           temp->tok = op_tok;
           free(lhs); free(rhs);
+          lhs = 0; rhs = 0;
           lhs = temp;
           break;
         }
@@ -34,11 +36,13 @@ node_t* parse_add_expr(parser_t* parser) {
         parser_consume(parser);
         rhs = parse_term(parser);
         temp = NEW_DATA(node_t);
+        memset(temp, 0, sizeof(node_t));
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
           temp->value = lhs->value - rhs->value;
           temp->tok = op_tok;
           free(lhs); free(rhs);
+          lhs = 0; rhs = 0;
           lhs = temp;
           break;
         }
@@ -73,11 +77,13 @@ node_t* parse_shift_expr(parser_t* parser) {
         parser_consume(parser);
         rhs = parse_add_expr(parser);
         temp = NEW_DATA(node_t);
+        memset(temp, 0, sizeof(node_t));
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
           temp->value = lhs->value << rhs->value;
           temp->tok = op_tok;
           free(lhs); free(rhs);
+          lhs = 0; rhs = 0;
           lhs = temp;
           break;
         }
@@ -97,11 +103,13 @@ node_t* parse_shift_expr(parser_t* parser) {
         parser_consume(parser);
         rhs = parse_add_expr(parser);
         temp = NEW_DATA(node_t);
+        memset(temp, 0, sizeof(node_t));
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
           temp->value = lhs->value >> rhs->value;
           temp->tok = op_tok;
           free(lhs); free(rhs);
+          lhs = 0; rhs = 0;
           lhs = temp;
           break;
         }
@@ -135,11 +143,13 @@ node_t* parse_bitwise_expr(parser_t* parser) {
         parser_consume(parser);
         rhs = parse_shift_expr(parser);
         temp = NEW_DATA(node_t);
+        memset(temp, 0, sizeof(node_t));
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
           temp->value = lhs->value | rhs->value;
           temp->tok = op_tok;
           free(lhs); free(rhs);
+          lhs = 0; rhs = 0;
           lhs = temp;
           break;
         }
@@ -157,11 +167,13 @@ node_t* parse_bitwise_expr(parser_t* parser) {
         parser_consume(parser);
         rhs = parse_shift_expr(parser);
         temp = NEW_DATA(node_t);
+        memset(temp, 0, sizeof(node_t));
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
           temp->value = lhs->value ^ rhs->value;
           temp->tok = op_tok;
           free(lhs); free(rhs);
+          lhs = 0; rhs = 0;
           lhs = temp;
           break;
         }
@@ -179,11 +191,13 @@ node_t* parse_bitwise_expr(parser_t* parser) {
         parser_consume(parser);
         rhs = parse_shift_expr(parser);
         temp = NEW_DATA(node_t);
+        memset(temp, 0, sizeof(node_t));
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
           temp->value = lhs->value & rhs->value;
           temp->tok = op_tok;
           free(lhs); free(rhs);
+          lhs = 0; rhs = 0;
           lhs = temp;
           break;
         }
@@ -217,11 +231,13 @@ node_t* parse_term(parser_t* parser) {
         parser_consume(parser);
         rhs = parse_factor(parser);
         temp = NEW_DATA(node_t);
+        memset(temp, 0, sizeof(node_t));
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
           temp->value = lhs->value * rhs->value;
           temp->tok = op_tok;
           free(lhs); free(rhs);
+          lhs = 0; rhs = 0;
           lhs = temp;
           break;
         }
@@ -239,11 +255,13 @@ node_t* parse_term(parser_t* parser) {
         parser_consume(parser);
         rhs = parse_factor(parser);
         temp = NEW_DATA(node_t);
+        memset(temp, 0, sizeof(node_t));
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
           temp->value = lhs->value / rhs->value;
           temp->tok = op_tok;
           free(lhs); free(rhs);
+          lhs = 0; rhs = 0;
           lhs = temp;
           break;
         }
@@ -261,11 +279,13 @@ node_t* parse_term(parser_t* parser) {
         parser_consume(parser);
         rhs = parse_factor(parser);
         temp = NEW_DATA(node_t);
+        memset(temp, 0, sizeof(node_t));
         if (lhs->type == NODE_INT && rhs->type == NODE_INT) {
           temp->type = NODE_INT;
           temp->value = lhs->value % rhs->value;
           temp->tok = op_tok;
           free(lhs); free(rhs);
+          lhs = 0; rhs = 0;
           lhs = temp;
           break;
         }

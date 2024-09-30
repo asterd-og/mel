@@ -25,6 +25,8 @@ typedef struct {
   fun_t* current_fn;
 } parser_t;
 
+extern type_t* parser_current_ty;
+
 parser_t* parser_create(lexer_t* lexer);
 
 void parser_error(parser_t* parser, const char* fmt, ...);
@@ -83,3 +85,4 @@ node_t* parse_stmt(parser_t* parser);
 node_t* parse_fn_call(parser_t* parser, bool stmt);
 
 void parser_parse(parser_t* parser);
+void parser_destroy(parser_t* parser);

@@ -14,9 +14,9 @@ extern "C" {
 
 using namespace llvm;
 
-LLVMContext context;
-Module* module;
-IRBuilder<> builder(context);
+LLVMContext* context = nullptr;
+Module* module = nullptr;
+IRBuilder<>* builder = nullptr;
 
 Function* current_fn = nullptr;
 bool fn_ret = false;
@@ -102,7 +102,7 @@ Type* backend_get_ptr_arr_mod(type_t* ty, Type* bt) {
 }
 
 Type* backend_gen_struct(type_t* ty) {
-  std::vector<Type *> fields = {builder.getInt64Ty()}; // Gotta add something so that it doesnt seg fault.
+  std::vector<Type *> fields = {builder->getInt64Ty()}; // Gotta add something so that it doesnt seg fault.
   auto* type = StructType::create(fields, "struct." + std::string(ty->type->name), ty->type->packed);
   fields.clear();
   for (list_item_t* item = ty->type->members->head->next; item != ty->type->members->head; item = item->next) {
@@ -129,24 +129,24 @@ Type* backend_get_llvm_type(type_t* ty) {
     }
   } else {
     if (ty->type->_float) {
-      if (ty->type->size == 4) bt = builder.getFloatTy();
-      else bt = builder.getDoubleTy();
+      if (ty->type->size == 4) bt = builder->getFloatTy();
+      else bt = builder->getDoubleTy();
     } else {
       switch (ty->type->size) {
         case 0:
-          bt = Type::getVoidTy(context);
+          bt = Type::getVoidTy(*context);
           break;
         case 1:
-          bt = Type::getInt8Ty(context);
+          bt = Type::getInt8Ty(*context);
           break;
         case 2:
-          bt = Type::getInt16Ty(context);
+          bt = Type::getInt16Ty(*context);
           break;
         case 4:
-          bt = Type::getInt32Ty(context);
+          bt = Type::getInt32Ty(*context);
           break;
         case 8:
-          bt = Type::getInt64Ty(context);
+          bt = Type::getInt64Ty(*context);
           break;
       }
     }
@@ -156,7 +156,7 @@ Type* backend_get_llvm_type(type_t* ty) {
 }
 
 Value* backend_load_int(Type* ty, int64_t val) {
-  if (ty->isPointerTy()) return ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), val), ty);
+  if (ty->isPointerTy()) return ConstantExpr::getIntToPtr(ConstantInt::get(builder->getInt64Ty(), val), ty);
   if (ty->isFloatingPointTy()) return ConstantFP::get(ty, val);
   return ConstantInt::get(ty, val);
 }
@@ -164,11 +164,11 @@ Value* backend_load_int(Type* ty, int64_t val) {
 Value* backend_load_float(Type* ty, double val) {
   if (!ty) {
     /*if (val <= FLT_MAX) {
-      ty = builder.getFloatTy();
+      ty = builder->getFloatTy();
     } else {
-      ty = builder.getDoubleTy();
+      ty = builder->getDoubleTy();
     }*/
-    ty = builder.getDoubleTy();
+    ty = builder->getDoubleTy();
   }
   return ConstantFP::get(ty, val);
 }
@@ -201,9 +201,9 @@ Value* backend_load_str(Type* ty, char* str, int len) {
   std::vector<llvm::Constant *> chars(len);
   std::string treated_str = unescape_string(str);
   for(int i = 0; i < len; i++) {
-    chars[i] = ConstantInt::get(builder.getInt8Ty(), treated_str[i]);
+    chars[i] = ConstantInt::get(builder->getInt8Ty(), treated_str[i]);
   }
-  auto init = ConstantArray::get(ArrayType::get(builder.getInt8Ty(), chars.size()),
+  auto init = ConstantArray::get(ArrayType::get(builder->getInt8Ty(), chars.size()),
                                  chars);
   GlobalVariable * v = new GlobalVariable(*module, init->getType(), true, GlobalVariable::ExternalLinkage,
     init,
@@ -227,24 +227,24 @@ Value* backend_gen_dif(Value* val, Type* val_type, Type* expected_type, bool sig
   }
   if (val_type->isFloatingPointTy()) {
     if (expected_type->isIntegerTy()) {
-      if (sign) return builder.CreateFPToSI(val, expected_type);
-      else return builder.CreateFPToUI(val, expected_type);
+      if (sign) return builder->CreateFPToSI(val, expected_type);
+      else return builder->CreateFPToUI(val, expected_type);
     }
-    return builder.CreateFPCast(val, expected_type);
+    return builder->CreateFPCast(val, expected_type);
   } else if (expected_type->isFloatingPointTy()) {
     if (val_type->isIntegerTy()) {
-      if (sign) return builder.CreateSIToFP(val, expected_type);
-      else return builder.CreateUIToFP(val, expected_type);
+      if (sign) return builder->CreateSIToFP(val, expected_type);
+      else return builder->CreateUIToFP(val, expected_type);
     }
-    return builder.CreateFPCast(val, expected_type);
+    return builder->CreateFPCast(val, expected_type);
   }
   if (!expected_type->isIntegerTy() || !val_type->isIntegerTy()) {
     return val;
   }
   if (sign) {
-    return builder.CreateSExtOrTrunc(val, expected_type);
+    return builder->CreateSExtOrTrunc(val, expected_type);
   } else {
-    return builder.CreateZExtOrTrunc(val, expected_type);
+    return builder->CreateZExtOrTrunc(val, expected_type);
   }
 }
 
@@ -255,8 +255,9 @@ Value* backend_gen_const_arr(Type* ty, list_t* items) {
     node_t* node = (node_t*)item->data;
     if (node->type == NODE_STR) {
       char* str = parse_str(node->tok);
-      values[i] = (ConstantExpr*)backend_load_str(PointerType::get(context, 0), str, node->tok->text_len + 1);
+      values[i] = (ConstantExpr*)backend_load_str(PointerType::get(*context, 0), str, node->tok->text_len + 1);
       free(str);
+      str = NULL;
     } else {
       values[i] = ConstantInt::get(ty->getArrayElementType(), node->value);
     }
@@ -281,16 +282,16 @@ std::tuple<Type*,Value*> backend_arr_gep(Type* ty, node_t* node, Value* var) {
   bool is_pointer = false;
   if (ty->isPointerTy()) {
     is_pointer = true;
-    pointer = builder.CreateLoad(arr_type, alloca);
+    pointer = builder->CreateLoad(arr_type, alloca);
     arr_type = arr_type->getPointerElementType();
   }
   Value* element_ptr;
   for (list_item_t* expr = expr_list->head->next; expr != expr_list->head; expr = expr->next) {
-    idx = backend_gen_expr(nullptr, (node_t*)expr->data);
+    idx = backend_gen_expr(builder->getInt64Ty(), (node_t*)expr->data);
     if (is_pointer) {
-      element_ptr = builder.CreateGEP(arr_type, pointer, idx);
+      element_ptr = builder->CreateGEP(arr_type, pointer, idx);
     } else {
-      element_ptr = builder.CreateGEP(arr_type, alloca, { builder.getInt64(0), idx });
+      element_ptr = builder->CreateGEP(arr_type, alloca, { builder->getInt64(0), idx });
     }
     alloca = element_ptr;
     if (arr_type->isArrayTy()) {
@@ -298,7 +299,7 @@ std::tuple<Type*,Value*> backend_arr_gep(Type* ty, node_t* node, Value* var) {
     } else {
       if (expr->next != expr_list->head) {
         arr_type = arr_type->getPointerElementType();
-        pointer = builder.CreateLoad(arr_type, alloca); // TODO: Test this later.
+        pointer = builder->CreateLoad(arr_type, alloca); // TODO: Test this later.
       }
     }
   }
@@ -311,10 +312,10 @@ std::tuple<Type*,Value*> backend_arr_idx(Type* ty, node_t* node, Value* var, boo
   Value* val;
   if (!store) {
     if (ty == nullptr) ty = std::get<0>(gep);
-    val = builder.CreateLoad(std::get<0>(gep), element_ptr);
+    val = builder->CreateLoad(std::get<0>(gep), element_ptr);
     val = backend_gen_dif(val, std::get<0>(gep), ty, (current_ty == nullptr ? false : current_ty->_signed));
   } else {
-    val = builder.CreateStore(store_val, element_ptr);
+    val = builder->CreateStore(store_val, element_ptr);
   }
   return {std::get<0>(gep), val};
 }
@@ -325,72 +326,72 @@ Value* backend_gen_aop(int node_type, bool _signed, Value* lhs, Value* expr) {
     case NODE_ASADD:
     case NODE_ADD:
       if (lhs->getType()->isPointerTy()) {
-        ret = builder.CreateGEP(lhs->getType()->getPointerElementType(), lhs, expr);
+        ret = builder->CreateGEP(lhs->getType()->getPointerElementType(), lhs, expr);
       } else {
-        if (lhs->getType()->isFloatingPointTy()) { ret = builder.CreateFAdd(lhs, expr); break; }
-        ret = builder.CreateAdd(lhs, expr);
+        if (lhs->getType()->isFloatingPointTy()) { ret = builder->CreateFAdd(lhs, expr); break; }
+        ret = builder->CreateAdd(lhs, expr);
       }
       break;
     case NODE_ASSUB:
     case NODE_SUB: {
       if (lhs->getType()->isPointerTy()) {
-        Value* sub = builder.CreateSub(ConstantInt::get(backend_get_var_type(expr), 0), expr);
-        ret = builder.CreateGEP(lhs->getType()->getPointerElementType(), lhs, sub);
+        Value* sub = builder->CreateSub(ConstantInt::get(backend_get_var_type(expr), 0), expr);
+        ret = builder->CreateGEP(lhs->getType()->getPointerElementType(), lhs, sub);
       } else {
-        if (lhs->getType()->isFloatingPointTy()) { ret = builder.CreateFSub(lhs, expr); break; }
-        ret = builder.CreateSub(lhs, expr);
+        if (lhs->getType()->isFloatingPointTy()) { ret = builder->CreateFSub(lhs, expr); break; }
+        ret = builder->CreateSub(lhs, expr);
       }
       break;
     }
     case NODE_ASMUL:
     case NODE_MUL:
-      if (lhs->getType()->isFloatingPointTy()) { ret = builder.CreateFMul(lhs, expr); break; }
-      ret = builder.CreateMul(lhs, expr);
+      if (lhs->getType()->isFloatingPointTy()) { ret = builder->CreateFMul(lhs, expr); break; }
+      ret = builder->CreateMul(lhs, expr);
       break;
     case NODE_ASDIV:
     case NODE_DIV:
-      if (lhs->getType()->isFloatingPointTy()) { ret = builder.CreateFDiv(lhs, expr); break; }
+      if (lhs->getType()->isFloatingPointTy()) { ret = builder->CreateFDiv(lhs, expr); break; }
       if (_signed) {
-        ret = builder.CreateSDiv(lhs, expr);
+        ret = builder->CreateSDiv(lhs, expr);
       } else {
-        ret = builder.CreateUDiv(lhs, expr);
+        ret = builder->CreateUDiv(lhs, expr);
       }
       break;
     case NODE_ASMOD:
     case NODE_MOD:
-      if (lhs->getType()->isFloatingPointTy()) { ret = builder.CreateFRem(lhs, expr); break; }
+      if (lhs->getType()->isFloatingPointTy()) { ret = builder->CreateFRem(lhs, expr); break; }
       if (_signed) {
-        ret = builder.CreateSRem(lhs, expr);
+        ret = builder->CreateSRem(lhs, expr);
       } else {
-        ret = builder.CreateURem(lhs, expr);
+        ret = builder->CreateURem(lhs, expr);
       }
       break;
     case NODE_ASSHL:
     case NODE_SHL:
-      ret = builder.CreateShl(lhs, expr);
+      ret = builder->CreateShl(lhs, expr);
       break;
     case NODE_ASSHR:
     case NODE_SHR:
       if (_signed) {
-        ret = builder.CreateAShr(lhs, expr);
+        ret = builder->CreateAShr(lhs, expr);
       } else {
-        ret = builder.CreateLShr(lhs, expr);
+        ret = builder->CreateLShr(lhs, expr);
       }
       break;
     case NODE_ASAND:
     case NODE_AND:
-      ret = builder.CreateAnd(lhs, expr);
+      ret = builder->CreateAnd(lhs, expr);
       break;
     case NODE_ASOR:
     case NODE_OR:
-      ret = builder.CreateOr(lhs, expr);
+      ret = builder->CreateOr(lhs, expr);
       break;
     case NODE_ASXOR:
     case NODE_XOR:
-      ret = builder.CreateXor(lhs, expr);
+      ret = builder->CreateXor(lhs, expr);
       break;
     case NODE_NOT:
-      ret = builder.CreateXor(lhs, -1);
+      ret = builder->CreateXor(lhs, -1);
       break;
   }
   return ret;
@@ -417,21 +418,22 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
   }
   switch (node->type) {
     case NODE_INT:
-      if (ty == nullptr) ty = Type::getInt64Ty(context);
+      if (ty == nullptr) ty = Type::getInt64Ty(*context);
       val = backend_load_int(ty, node->value);
       break;
     case NODE_STR: {
       char* str = parse_str(node->tok);
-      ty = PointerType::getInt8PtrTy(context);
+      ty = PointerType::getInt8PtrTy(*context);
       val = backend_load_str(ty, str, node->tok->text_len + 1);
       free(str);
+      str = NULL;
       break;
     }
     case NODE_EXCL: {
-      if (ty == nullptr) ty = Type::getInt64Ty(context);
+      if (ty == nullptr) ty = Type::getInt64Ty(*context);
       Value *zero = backend_load_int(ty, 0);
-      val = builder.CreateICmpEQ(lhs, zero);
-      ty = builder.getIntNTy(1);
+      val = builder->CreateICmpEQ(lhs, zero);
+      ty = builder->getIntNTy(1);
       break;
     }
     case NODE_ID: {
@@ -440,6 +442,7 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
         val = fn_map.find(str)->second;
         ty = val->getType();
         free(str);
+        str = NULL;
         break;
       }
       Value* var = backend_get_var(str);
@@ -449,19 +452,20 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
         current_ty = backend_get_parser_var_type(str);
       }
       free(str);
+      str = NULL;
       if (backend_get_var_type(var)->isArrayTy()) {
-        var = builder.CreateGEP(backend_get_var_type(var), var, { builder.getInt64(0), builder.getInt64(0) });
+        var = builder->CreateGEP(backend_get_var_type(var), var, { builder->getInt64(0), builder->getInt64(0) });
       } else {
-        var = builder.CreateLoad(ty, var);
+        var = builder->CreateLoad(ty, var);
       }
       val = backend_gen_dif(var, ty, first_ty, current_ty->_signed);
       break;
     }
     case NODE_NEG:
       if (ty && ty->isFloatingPointTy())
-        val = builder.CreateFNeg(lhs);
+        val = builder->CreateFNeg(lhs);
       else
-        val = builder.CreateNeg(lhs);
+        val = builder->CreateNeg(lhs);
       if (!ty) ty = val->getType();
       break;
     case NODE_FLOAT:
@@ -483,6 +487,7 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       val = std::get<1>(arr);
       ty = std::get<0>(arr);
       free(str);
+      str = NULL;
       break;
     }
     case NODE_STRUCT_ACC: {
@@ -490,7 +495,7 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       val = std::get<1>(struct_acc);
       Type* member_ty = std::get<0>(struct_acc);
       if (!member_ty->isArrayTy()) {
-        val = builder.CreateLoad(member_ty, val);
+        val = builder->CreateLoad(member_ty, val);
       }
       val = backend_gen_dif(val, member_ty, ty, (current_ty ? current_ty->_signed : false));
       ty = member_ty;
@@ -500,7 +505,7 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       auto deref = backend_gen_deref(node);
       val = std::get<1>(deref);
       ty = std::get<0>(deref);
-      val = builder.CreateLoad(ty, val);
+      val = builder->CreateLoad(ty, val);
       break;
     }
     case NODE_REF: {
@@ -513,21 +518,26 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       type_t* pty = (type_t*)node->data;
       Type* dty = backend_get_llvm_type((type_t*)node->data);
       if (pty->is_pointer && (backend_get_var_type(lhs)->isPointerTy())) {
-        val = builder.CreatePointerCast(lhs, dty);
+        val = builder->CreatePointerCast(lhs, dty);
       } else if (pty->is_pointer) {
-        val = builder.CreateIntToPtr(lhs, dty);
+        val = builder->CreateIntToPtr(lhs, dty);
       } else if (!pty->is_pointer && (backend_get_var_type(lhs)->isPointerTy())) {
-        val = builder.CreatePtrToInt(lhs, dty);
+        val = builder->CreatePtrToInt(lhs, dty);
       } else if (pty->type->_float) {
         // TODO: Test this
         if (backend_get_var_type(lhs)->isIntegerTy()) {
-          if (current_ty->_signed) val = builder.CreateSIToFP(lhs, dty);
-          else val = builder.CreateUIToFP(lhs, dty);
+          if (current_ty && current_ty->_signed) val = builder->CreateSIToFP(lhs, dty);
+          else val = builder->CreateUIToFP(lhs, dty);
         } else {
-          val = builder.CreateFPCast(val, dty);
+          val = builder->CreateFPCast(val, dty);
         }
       } else {
-        val = builder.CreateIntCast(lhs, dty, pty->_signed);
+        if (backend_get_var_type(lhs)->isFloatingPointTy()) {
+          if (current_ty && current_ty->_signed) val = builder->CreateFPToSI(lhs, dty);
+          else val = builder->CreateFPToUI(lhs, dty);
+        } else {
+          val = builder->CreateIntCast(lhs, dty, pty->_signed);
+        }
       }
       ty = dty;
       break;
@@ -536,7 +546,6 @@ std::tuple<Type*,Value*> backend_gen_iexpr(Type* ty, node_t* node) {
       val = backend_gen_aop(node->type, (current_ty ? current_ty->_signed : false), lhs, rhs);
       break;
   }
-  free(node);
   return {ty, val};
 }
 
@@ -551,12 +560,12 @@ void backend_gen_arr(Value* alloca, Type* arr_ty, node_t* node) {
     node_t* expr = (node_t*)item->data;
     Value* val;
     if (expr->type == NODE_ARRAY) {
-      Value* element_ptr = builder.CreateGEP(arr_ty, alloca, { builder.getInt64(0), builder.getInt64(i) } );
+      Value* element_ptr = builder->CreateGEP(arr_ty, alloca, { builder->getInt64(0), builder->getInt64(i) } );
       backend_gen_arr(element_ptr, arr_ty->getArrayElementType(), expr);
     } else {
       val = backend_gen_expr(arr_ty->getArrayElementType(), expr);
-      Value* element_ptr = builder.CreateGEP(arr_ty, alloca, { builder.getInt64(0), builder.getInt64(i) } );
-      builder.CreateStore(val, element_ptr);
+      Value* element_ptr = builder->CreateGEP(arr_ty, alloca, { builder->getInt64(0), builder->getInt64(i) } );
+      builder->CreateStore(val, element_ptr);
     }
     i++;
   }
@@ -584,13 +593,14 @@ void backend_gen_fn_def(node_t* node) {
     fn = fn_map.find(name)->second;
   }
   free(name);
+  name = NULL;
   if (!fn_node->initialised) return;
   backend_new_scope();
   fn_ret = false;
   current_fn = fn;
-  BasicBlock* entry = BasicBlock::Create(context, "entry", fn);
+  BasicBlock* entry = BasicBlock::Create(*context, "entry", fn);
   entry_block = entry;
-  builder.SetInsertPoint(entry);
+  builder->SetInsertPoint(entry);
   current_block = entry;
   auto param_iterator = fn->arg_begin();
   for (list_item_t* param = fn_node->params->head->next; param != fn_node->params->head; param = param->next) {
@@ -600,13 +610,14 @@ void backend_gen_fn_def(node_t* node) {
     char* pname = parse_str(var->name);
     val->setName(pname);
 
-    AllocaInst* addr = builder.CreateAlloca(backend_get_llvm_type(var->type), nullptr, std::string(pname) + ".addr");
-    builder.CreateStore(val, addr);
+    AllocaInst* addr = builder->CreateAlloca(backend_get_llvm_type(var->type), nullptr, std::string(pname) + ".addr");
+    builder->CreateStore(val, addr);
     val = addr;
 
     current_scope->var_map[std::string(pname)] = val;
     current_scope->var_types[std::string(pname)] = var->type;
     free(pname);
+    pname = NULL;
   }
   if (fn_node->body->size > 0) {
     for (list_item_t* item = fn_node->body->head->next; item != fn_node->body->head; item = item->next) {
@@ -614,23 +625,23 @@ void backend_gen_fn_def(node_t* node) {
     }
   }
   if (scheduled_br) {
-    builder.SetInsertPoint(entry);
-    builder.CreateBr(scheduled_br);
-    builder.SetInsertPoint(current_block);
+    builder->SetInsertPoint(entry);
+    builder->CreateBr(scheduled_br);
+    builder->SetInsertPoint(current_block);
   }
   backend_back_scope();
   if (!fn_ret) {
-    if (fn->getReturnType() == Type::getVoidTy(context)) {
-      builder.CreateRetVoid();
+    if (fn->getReturnType() == Type::getVoidTy(*context)) {
+      builder->CreateRetVoid();
     } else {
       Value* ret;
       if (fn->getReturnType()->isPointerTy()) {
-        ret = builder.CreateAlloca(fn->getReturnType());
-        ret = builder.CreateLoad(fn->getReturnType(), ret);
+        ret = builder->CreateAlloca(fn->getReturnType());
+        ret = builder->CreateLoad(fn->getReturnType(), ret);
       } else {
         ret = backend_load_int(fn->getReturnType(), 0);
       }
-      builder.CreateRet(ret);
+      builder->CreateRet(ret);
     }
   }
   scheduled_br = nullptr;
@@ -644,11 +655,11 @@ void backend_gen_var_def(node_t* node) {
   Value* var;
   int alignment = var_node->type->alignment;
   if (current_fn != nullptr) {
-    builder.SetInsertPoint(entry_block);
-    var = builder.CreateAlloca(type, nullptr, name);
+    builder->SetInsertPoint(entry_block);
+    var = builder->CreateAlloca(type, nullptr, name);
     if (alignment > 0)
       ((AllocaInst*)var)->setAlignment(Align(alignment));
-    builder.SetInsertPoint(current_block);
+    builder->SetInsertPoint(current_block);
   } else {
     auto glob = module->getOrInsertGlobal(name, type);
     var = glob;
@@ -664,6 +675,7 @@ void backend_gen_var_def(node_t* node) {
   current_scope->var_types[std::string(name)] = var_node->type;
   current_ty = var_node->type;
   free(name);
+  name = NULL;
   if (!var_node->initialised) {
     if (isa<GlobalVariable>(var) && !var_node->external) {
       ((GlobalVariable*)var)->setInitializer(ConstantAggregateZero::get(type));
@@ -688,7 +700,7 @@ void backend_gen_var_def(node_t* node) {
     }
   } else {
     Value* expr = backend_gen_expr(type, node->lhs);
-    builder.CreateStore(expr, var);
+    builder->CreateStore(expr, var);
   }
 }
 
@@ -712,7 +724,8 @@ Value* backend_gen_fn_call(node_t* node) {
     }
   }
   free(name);
-  auto* call = builder.CreateCall(fn, args);
+  name = NULL;
+  auto* call = builder->CreateCall(fn, args);
   auto *result = call;
   return result;
 }
@@ -745,21 +758,22 @@ std::tuple<Type*,Value*> backend_gen_internal_lvalue(node_t* lvalue, Value* val,
         Value* ret = backend_get_var(pname);
         current_ty = backend_get_parser_var_type(pname);
         free(pname);
+        pname = NULL;
         if (current_ty->is_arr) {
-          ret = builder.CreateGEP(backend_get_var_type(ret), ret, { builder.getInt64(0), builder.getInt64(0) });
+          ret = builder->CreateGEP(backend_get_var_type(ret), ret, { builder->getInt64(0), builder->getInt64(0) });
         }
         return {backend_get_llvm_type(current_ty), ret};
       } else {
         auto member = backend_get_struct_member_idx(current_ty, lvalue->tok);
         int access = std::get<1>(member);
         if (ty->isPointerTy()) {
-          val = builder.CreateLoad(ty, val);
+          val = builder->CreateLoad(ty, val);
           ty = ty->getPointerElementType();
         }
-        Value* ret = builder.CreateGEP(ty, val, { builder.getInt32(0), builder.getInt32(access) });
+        Value* ret = builder->CreateGEP(ty, val, { builder->getInt32(0), builder->getInt32(access) });
         Type* memberTy = backend_get_llvm_type(std::get<0>(member)->type);
         if (std::get<0>(member)->type->is_arr) {
-          ret = builder.CreateGEP(memberTy, ret, { builder.getInt64(0), builder.getInt64(0) });
+          ret = builder->CreateGEP(memberTy, ret, { builder->getInt64(0), builder->getInt64(0) });
         }
         return {memberTy, ret};
       }
@@ -774,16 +788,17 @@ std::tuple<Type*,Value*> backend_gen_internal_lvalue(node_t* lvalue, Value* val,
         current_ty = backend_get_parser_var_type(str);
         arr_ty = backend_get_llvm_type(current_ty);
         free(str);
+        str = NULL;
       } else {
         var = val;
         auto member = backend_get_struct_member_idx(current_ty, lvalue->tok);
         int access = std::get<1>(member);
         arr_ty = backend_get_llvm_type(std::get<0>(member)->type);
         if (ty->isPointerTy()) {
-          var = builder.CreateLoad(ty, var);
+          var = builder->CreateLoad(ty, var);
           ty = ty->getPointerElementType();
         }
-        var = builder.CreateGEP(ty, var, { builder.getInt32(0), builder.getInt32(access) });
+        var = builder->CreateGEP(ty, var, { builder->getInt32(0), builder->getInt32(access) });
       }
       auto ret = backend_arr_gep(arr_ty, lvalue, var);
       return ret;
@@ -804,6 +819,7 @@ std::tuple<Type*,Value*> backend_gen_struct_acc(node_t* node) {
   char* pname = parse_str(node->lhs->tok);
   current_ty = backend_get_parser_var_type(pname);
   free(pname);
+  pname = NULL;
   return rhs;
 }
 
@@ -839,7 +855,7 @@ std::tuple<Type*,Value*> backend_gen_deref(node_t* node) {
     if (node->lhs->rhs) {
       expr = backend_gen_iexpr(nullptr, node->lhs->rhs);
       val = std::get<1>(expr);
-      val = builder.CreateGEP(ty, var, val);
+      val = builder->CreateGEP(ty, var, val);
     } else {
       val = var;
     }
@@ -862,12 +878,14 @@ std::tuple<Type*,Value*> backend_gen_ref(node_t* node) {
     char* name = parse_str(node->lhs->tok);
     var = backend_get_var(name);
     free(name);
+    name = NULL;
     val = var;
     ty = var->getType();
   } else if (node->lhs->type == NODE_ARR_IDX) {
     char* name = parse_str(node->lhs->tok);
     var = backend_get_var(name);
     free(name);
+    name = NULL;
     auto arr_idx = backend_arr_gep(backend_get_var_type(var), node->lhs, var);
     val = std::get<1>(arr_idx);
     ty = std::get<0>(arr_idx);
@@ -881,7 +899,7 @@ std::tuple<Type*,Value*> backend_gen_ref(node_t* node) {
     if (node->lhs->rhs) {
       expr = backend_gen_iexpr(nullptr, node->lhs->rhs);
       val = std::get<1>(expr);
-      val = builder.CreateGEP(ty, var, val);
+      val = builder->CreateGEP(ty, var, val);
     } else {
       val = var;
     }
@@ -896,6 +914,7 @@ std::tuple<Type*,Value*> backend_gen_lvalue(node_t* lvalue) {
       Value* val = backend_get_var(pname);
       current_ty = backend_get_parser_var_type(pname);
       free(pname);
+      pname = NULL;
       return {backend_get_llvm_type(current_ty), val};
       break;
     }
@@ -905,6 +924,7 @@ std::tuple<Type*,Value*> backend_gen_lvalue(node_t* lvalue) {
       current_ty = backend_get_parser_var_type(str);
       auto val = backend_arr_gep(backend_get_var_type(var), lvalue, var);
       free(str);
+      str = NULL;
       return val;
       break;
     }
@@ -932,21 +952,21 @@ void backend_gen_assignment(node_t* node) {
 
   if (node->type != NODE_ASSIGN) {
     Value* lhs;
-    lhs = builder.CreateLoad(std::get<0>(ty_lval), lvalue);
+    lhs = builder->CreateLoad(std::get<0>(ty_lval), lvalue);
     store = backend_gen_aop(node->type, (current_ty ? current_ty->_signed : false), lhs, expr);
   }
 
-  StoreInst* st = builder.CreateStore(store, lvalue);
-  if (current_ty->type->packed) {
+  StoreInst* st = builder->CreateStore(store, lvalue);
+  if (current_ty && current_ty->type->packed) {
     st->setAlignment(Align(1));
   }
 }
 
 void backend_gen_ret(node_t* node) {
-  if (current_fn->getReturnType() == Type::getVoidTy(context)) {
-    builder.CreateRetVoid();
+  if (current_fn->getReturnType() == Type::getVoidTy(*context)) {
+    builder->CreateRetVoid();
   } else {
-    builder.CreateRet(backend_gen_expr(current_fn->getReturnType(), node->lhs));
+    builder->CreateRet(backend_gen_expr(current_fn->getReturnType(), node->lhs));
   }
   if (!inside_scope) fn_ret = true;
   if (inside_scope) should_br = false;
@@ -961,68 +981,68 @@ void backend_gen_cond(node_t* cond, BasicBlock* true_block, BasicBlock* false_bl
     Value* cmp;
     switch (cond->type) {
       case NODE_EQEQ:
-        if (lhs->getType()->isFloatingPointTy()) { cmp = builder.CreateFCmpOEQ(lhs, rhs); break; }
-        cmp = builder.CreateICmpEQ(lhs, rhs, "cmp");
+        if (lhs->getType()->isFloatingPointTy()) { cmp = builder->CreateFCmpOEQ(lhs, rhs); break; }
+        cmp = builder->CreateICmpEQ(lhs, rhs, "cmp");
         break;
       case NODE_GT:
-        if (lhs->getType()->isFloatingPointTy()) { cmp = builder.CreateFCmpOGT(lhs, rhs); break; }
+        if (lhs->getType()->isFloatingPointTy()) { cmp = builder->CreateFCmpOGT(lhs, rhs); break; }
         if (current_ty->_signed) {
-          cmp = builder.CreateICmpSGT(lhs, rhs, "cmp");
+          cmp = builder->CreateICmpSGT(lhs, rhs, "cmp");
         } else {
-          cmp = builder.CreateICmpUGT(lhs, rhs, "cmp");
+          cmp = builder->CreateICmpUGT(lhs, rhs, "cmp");
         }
         break;
       case NODE_GTEQ:
-        if (lhs->getType()->isFloatingPointTy()) { cmp = builder.CreateFCmpOGE(lhs, rhs); break; }
+        if (lhs->getType()->isFloatingPointTy()) { cmp = builder->CreateFCmpOGE(lhs, rhs); break; }
         if (current_ty->_signed) {
-          cmp = builder.CreateICmpSGE(lhs, rhs, "cmp");
+          cmp = builder->CreateICmpSGE(lhs, rhs, "cmp");
         } else {
-          cmp = builder.CreateICmpUGE(lhs, rhs, "cmp");
+          cmp = builder->CreateICmpUGE(lhs, rhs, "cmp");
         }
         break;
       case NODE_LT:
-        if (lhs->getType()->isFloatingPointTy()) { cmp = builder.CreateFCmpOLT(lhs, rhs); break; }
+        if (lhs->getType()->isFloatingPointTy()) { cmp = builder->CreateFCmpOLT(lhs, rhs); break; }
         if (current_ty->_signed) {
-          cmp = builder.CreateICmpSLT(lhs, rhs, "cmp");
+          cmp = builder->CreateICmpSLT(lhs, rhs, "cmp");
         } else {
-          cmp = builder.CreateICmpULT(lhs, rhs, "cmp");
+          cmp = builder->CreateICmpULT(lhs, rhs, "cmp");
         }
         break;
       case NODE_LTEQ:
-        if (lhs->getType()->isFloatingPointTy()) { cmp = builder.CreateFCmpOLE(lhs, rhs); break; }
+        if (lhs->getType()->isFloatingPointTy()) { cmp = builder->CreateFCmpOLE(lhs, rhs); break; }
         if (current_ty->_signed) {
-          cmp = builder.CreateICmpSLE(lhs, rhs, "cmp");
+          cmp = builder->CreateICmpSLE(lhs, rhs, "cmp");
         } else {
-          cmp = builder.CreateICmpULE(lhs, rhs, "cmp");
+          cmp = builder->CreateICmpULE(lhs, rhs, "cmp");
         }
         break;
       case NODE_NOTEQ:
-        if (lhs->getType()->isFloatingPointTy()) { cmp = builder.CreateFCmpONE(lhs, rhs); break; }
-        cmp = builder.CreateICmpNE(lhs, rhs, "cmp");
+        if (lhs->getType()->isFloatingPointTy()) { cmp = builder->CreateFCmpONE(lhs, rhs); break; }
+        cmp = builder->CreateICmpNE(lhs, rhs, "cmp");
         break;
     }
-    builder.CreateCondBr(cmp, true_block, false_block);
+    builder->CreateCondBr(cmp, true_block, false_block);
   } else {
     Value* cmp;
     BasicBlock* temp_block = current_block;
     if (cond->type == NODE_DBAND) {
-      BasicBlock* land_lhs_true = BasicBlock::Create(context, "land.lhs.true", current_fn);
+      BasicBlock* land_lhs_true = BasicBlock::Create(*context, "land.lhs.true", current_fn);
       backend_gen_cond(cond->lhs, land_lhs_true, false_block);
-      builder.SetInsertPoint(land_lhs_true);
+      builder->SetInsertPoint(land_lhs_true);
       backend_gen_cond(cond->rhs, true_block, false_block);
-      builder.SetInsertPoint(temp_block);
+      builder->SetInsertPoint(temp_block);
     } else if (cond->type == NODE_DBOR) {
-      BasicBlock* lor_lhs_false = BasicBlock::Create(context, "lor.lhs.false", current_fn);
+      BasicBlock* lor_lhs_false = BasicBlock::Create(*context, "lor.lhs.false", current_fn);
       backend_gen_cond(cond->lhs, true_block, lor_lhs_false);
-      builder.SetInsertPoint(lor_lhs_false);
+      builder->SetInsertPoint(lor_lhs_false);
       backend_gen_cond(cond->rhs, true_block, false_block);
-      builder.SetInsertPoint(temp_block);
+      builder->SetInsertPoint(temp_block);
     } else {
       auto first_expr = backend_gen_iexpr(nullptr, cond);
       Value* val = std::get<1>(first_expr);
       Value* zero = backend_load_int(std::get<0>(first_expr), 0);
-      cmp = builder.CreateICmpUGT(val, zero, "cmp");
-      builder.CreateCondBr(cmp, true_block, false_block);
+      cmp = builder->CreateICmpUGT(val, zero, "cmp");
+      builder->CreateCondBr(cmp, true_block, false_block);
     }
   }
 }
@@ -1039,26 +1059,26 @@ void backend_gen_for_loop(node_t* node) {
 
   BasicBlock* temp_block = current_block;
 
-  BasicBlock* cond = BasicBlock::Create(context, "for.cond", current_fn);
-  builder.SetInsertPoint(cond);
+  BasicBlock* cond = BasicBlock::Create(*context, "for.cond", current_fn);
+  builder->SetInsertPoint(cond);
   current_block = cond;
 
-  BasicBlock* step = BasicBlock::Create(context, "for.step", current_fn);
+  BasicBlock* step = BasicBlock::Create(*context, "for.step", current_fn);
   step_block = step;
-  builder.SetInsertPoint(step);
+  builder->SetInsertPoint(step);
   current_block = step;
   backend_gen_assignment(stmt->step);
-  builder.CreateBr(cond);
+  builder->CreateBr(cond);
 
   inside_scope++;
-  BasicBlock* body = BasicBlock::Create(context, "for.body", current_fn);
-  BasicBlock* end = BasicBlock::Create(context, "for.end", current_fn);
+  BasicBlock* body = BasicBlock::Create(*context, "for.body", current_fn);
+  BasicBlock* end = BasicBlock::Create(*context, "for.end", current_fn);
   BasicBlock* temp_end = end_block;
   end_block = end;
-  builder.SetInsertPoint(body);
+  builder->SetInsertPoint(body);
   current_block = body;
   backend_gen_stmt(stmt->body);
-  if (should_br) builder.CreateBr(step);
+  if (should_br) builder->CreateBr(step);
   else should_br = true;
 
   inside_scope--;
@@ -1070,26 +1090,26 @@ void backend_gen_for_loop(node_t* node) {
     if (!scheduled_br)
       scheduled_br = cond;
   } else {
-    builder.SetInsertPoint(temp_block);
-    builder.CreateBr(cond);
+    builder->SetInsertPoint(temp_block);
+    builder->CreateBr(cond);
   }
 
-  builder.SetInsertPoint(cond);
+  builder->SetInsertPoint(cond);
   backend_gen_cond(node->lhs, body, end);
 
   backend_back_scope();
 
-  builder.SetInsertPoint(end);
+  builder->SetInsertPoint(end);
 }
 
 void backend_gen_if_stmt(node_t* node) {
   if_stmt_t* stmt = (if_stmt_t*)node->data;
   BasicBlock* temp_block = current_block;
 
-  BasicBlock* cond = BasicBlock::Create(context, "if.cond", current_fn);
+  BasicBlock* cond = BasicBlock::Create(*context, "if.cond", current_fn);
 
-  BasicBlock* true_body = BasicBlock::Create(context, "if.then", current_fn);
-  builder.SetInsertPoint(true_body);
+  BasicBlock* true_body = BasicBlock::Create(*context, "if.then", current_fn);
+  builder->SetInsertPoint(true_body);
   current_block = true_body;
   inside_scope++;
   backend_gen_stmt(stmt->true_stmt);
@@ -1102,8 +1122,8 @@ void backend_gen_if_stmt(node_t* node) {
 
   if (stmt->false_stmt != NULL) {
     inside_scope++;
-    else_body = BasicBlock::Create(context, "if.else", current_fn);
-    builder.SetInsertPoint(else_body);
+    else_body = BasicBlock::Create(*context, "if.else", current_fn);
+    builder->SetInsertPoint(else_body);
     current_block = else_body;
     backend_gen_stmt(stmt->false_stmt);
     end_else_body = current_block;
@@ -1112,33 +1132,33 @@ void backend_gen_if_stmt(node_t* node) {
     should_br = true;
   }
 
-  BasicBlock* end_body = BasicBlock::Create(context, "if.end", current_fn);
-  builder.SetInsertPoint(end_true_body);
-  if (true_should_br) builder.CreateBr(end_body);
+  BasicBlock* end_body = BasicBlock::Create(*context, "if.end", current_fn);
+  builder->SetInsertPoint(end_true_body);
+  if (true_should_br) builder->CreateBr(end_body);
   inside_scope--;
 
   if (stmt->false_stmt != NULL && false_should_br) {
     if (end_else_body != else_body) {
-      builder.SetInsertPoint(end_else_body);
-      builder.CreateBr(end_body);
+      builder->SetInsertPoint(end_else_body);
+      builder->CreateBr(end_body);
     } else {
-      builder.SetInsertPoint(else_body);
-      builder.CreateBr(end_body);
+      builder->SetInsertPoint(else_body);
+      builder->CreateBr(end_body);
     }
   }
 
-  builder.SetInsertPoint(cond);
+  builder->SetInsertPoint(cond);
   backend_gen_cond(node->lhs, true_body, (stmt->false_stmt ? else_body : end_body));
 
   if (temp_block == entry_block) {
     if (!scheduled_br)
       scheduled_br = cond;
   } else {
-    builder.SetInsertPoint(temp_block);
-    builder.CreateBr(cond);
+    builder->SetInsertPoint(temp_block);
+    builder->CreateBr(cond);
   }
 
-  builder.SetInsertPoint(end_body);
+  builder->SetInsertPoint(end_body);
   current_block = end_body;
 }
 
@@ -1149,20 +1169,20 @@ void backend_gen_while_loop(node_t* node) {
 
   BasicBlock* temp_block = current_block;
 
-  BasicBlock* cond = BasicBlock::Create(context, "while.cond", current_fn);
+  BasicBlock* cond = BasicBlock::Create(*context, "while.cond", current_fn);
   step_block = cond;
-  builder.SetInsertPoint(cond);
+  builder->SetInsertPoint(cond);
   current_block = cond;
 
   inside_scope++;
-  BasicBlock* body = BasicBlock::Create(context, "while.body", current_fn);
-  BasicBlock* end = BasicBlock::Create(context, "while.end", current_fn);
+  BasicBlock* body = BasicBlock::Create(*context, "while.body", current_fn);
+  BasicBlock* end = BasicBlock::Create(*context, "while.end", current_fn);
   BasicBlock* temp_end = end_block;
   end_block = end;
-  builder.SetInsertPoint(body);
+  builder->SetInsertPoint(body);
   current_block = body;
   backend_gen_stmt(stmt->body);
-  if (should_br) builder.CreateBr(cond);
+  if (should_br) builder->CreateBr(cond);
   else should_br = true;
   end_block = temp_end;
   inside_scope--;
@@ -1173,24 +1193,24 @@ void backend_gen_while_loop(node_t* node) {
     if (!scheduled_br)
       scheduled_br = cond;
   } else {
-    builder.SetInsertPoint(temp_block);
-    builder.CreateBr(cond);
+    builder->SetInsertPoint(temp_block);
+    builder->CreateBr(cond);
   }
 
-  builder.SetInsertPoint(cond);
+  builder->SetInsertPoint(cond);
   backend_gen_cond(node->lhs, body, end);
 
   backend_back_scope();
 
-  builder.SetInsertPoint(end);
+  builder->SetInsertPoint(end);
 }
 
 void backend_gen_break_continue(node_t* node) {
   if (node->type == NODE_BREAK) {
-    builder.CreateBr(end_block);
+    builder->CreateBr(end_block);
     should_br = false;
   } else {
-    builder.CreateBr(step_block);
+    builder->CreateBr(step_block);
     should_br = false;
   }
 }
@@ -1236,12 +1256,19 @@ void backend_gen_stmt(node_t* node) {
       backend_gen_break_continue(node);
       break;
   }
-  free(node);
+  // free(node);
 }
 
 extern "C" void backend_gen(list_t* ast, bool print_ir, char* out) {
+  LLVMContext* new_context = new LLVMContext();
+  if (context != nullptr) {
+    delete context;
+    delete builder;
+  }
+  context = new_context;
+  builder = new llvm::IRBuilder<>(*context);
+  module = new Module("module", *context);
   current_scope = nullptr;
-  module = new Module("module", context);
   backend_new_scope();
   for (list_item_t* item = ast->head->next; item != ast->head; item = item->next) {
     backend_gen_stmt((node_t*)item->data);
