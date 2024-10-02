@@ -51,7 +51,9 @@
     "cinttypes": "cpp",
     "typeinfo": "cpp",
     "list": "cpp",
-    "map": "cpp"
+    "map": "cpp",
+    "sstream": "cpp",
+    "stacktrace": "cpp"
   },
   "C_Cpp.errorSquiggles": "enabled"
 }

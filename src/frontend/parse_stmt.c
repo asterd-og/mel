@@ -112,6 +112,7 @@ node_t* parse_id(parser_t* parser, type_t* type) {
   char* pname = parse_str(name);
   object_t* obj = parser_find_obj(parser, pname);
   id_type = obj->type;
+  parser_current_ty = obj->type;
   node_t* node;
   if (parser_peek(parser)->type == TOK_DOT) {
     if (!obj->type->type->_struct) {
@@ -600,6 +601,86 @@ node_t* parse_while(parser_t* parser) {
   wstmt->initialised = initialised;
   wstmt->body = stmt;
   node->data = wstmt;
+  return node;
+}
+
+list_t* parse_switch_ranges(parser_t* parser) {
+  list_t* ranges = list_create();
+loop: {
+  node_t* case_expr = parse_expression(parser, NULL);
+  int64_t range = 0;
+  if (case_expr->type != NODE_INT) {
+    parser_error(parser, "Case expression needs to be a constant expression.");
+    return NULL;
+  }
+  switch_range_t* switch_range = NEW_DATA(switch_range_t);
+  switch_range->range = 0;
+  switch_range->start_at = case_expr->value;
+  if (parser->token->type == TOK_EQ) {
+    parser_eat(parser, TOK_GT);
+    parser_consume(parser);
+    // It's a range
+    node_t* case_expr2 = parse_expression(parser, NULL);
+    if (case_expr2->type != NODE_INT) {
+      parser_error(parser, "Case expression needs to be a constant expression.");
+      return NULL;
+    }
+    range = case_expr2->value - case_expr->value;
+    if (range < 0) {
+      parser_error(parser, "Invalid range of %ld.\n", range);
+      return NULL;
+    }
+    switch_range->range = range;
+  }
+  list_add(ranges, switch_range);
+  if (parser->token->type == TOK_DBPIPE) { parser_consume(parser); goto loop; }
+}
+  return ranges;
+}
+
+node_t* parse_switch(parser_t* parser) {
+  token_t* tok = parser->token;
+  parser_eat(parser, TOK_LPAR);
+  parser_consume(parser);
+  node_t* expr = parse_expression(parser, NULL);
+  if (parser_current_ty->is_pointer || parser_current_ty->is_arr || parser_current_ty->type->_struct ||
+      parser_current_ty->type->_float) {
+    parser_error(parser, "Switch statement requires an integer type.");
+    return NULL;
+  }
+  parser_expect(parser, TOK_RPAR);
+  parser_eat(parser, TOK_LBRAC);
+  switch_stmt_t* stmt = NEW_DATA(switch_stmt_t);
+  stmt->cases = list_create();
+  stmt->value = expr;
+  parser_consume(parser);
+  while (parser->token->type != TOK_RBRAC && parser->token->type != TOK_EOF) {
+    if (parser->token->type == TOK_DEFAULT) {
+      parser_consume(parser);
+      node_t* body = parse_stmt(parser);
+      switch_case_t* switch_case = NEW_DATA(switch_case_t);
+      switch_case->def = true;
+      switch_case->body = body;
+      list_add(stmt->cases, switch_case);
+      continue;
+    }
+    parser_expect(parser, TOK_CASE);
+    parser_consume(parser);
+    list_t* ranges = parse_switch_ranges(parser);
+    node_t* body = parse_stmt(parser);
+    switch_case_t* switch_case = NEW_DATA(switch_case_t);
+    switch_case->def = false;
+    switch_case->ranges = ranges;
+    switch_case->body = body;
+    list_add(stmt->cases, switch_case);
+  }
+  parser_expect(parser, TOK_RBRAC);
+  parser_consume(parser);
+  node_t* node = NEW_DATA(node_t);
+  memset(node, 0, sizeof(node_t));
+  node->type = NODE_SWITCH;
+  node->data = stmt;
+  node->tok = tok;
   return node;
 }
 

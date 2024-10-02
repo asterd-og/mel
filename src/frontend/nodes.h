@@ -40,6 +40,7 @@ enum {
   NODE_IF,
   NODE_FOR,
   NODE_WHILE,
+  NODE_SWITCH,
 
   NODE_EQEQ, NODE_GT, NODE_GTEQ,
   NODE_LT, NODE_LTEQ, NODE_NOT,
@@ -154,3 +155,19 @@ typedef struct {
   bool initialised;
   node_t* body;
 } while_stmt_t;
+
+typedef struct {
+  int64_t start_at;
+  int64_t range;
+} switch_range_t;
+
+typedef struct {
+  bool def;
+  list_t* ranges;
+  node_t* body;
+} switch_case_t;
+
+typedef struct {
+  node_t* value;
+  list_t* cases;
+} switch_stmt_t;

@@ -1216,6 +1216,57 @@ void backend_gen_break_continue(node_t* node) {
   }
 }
 
+void backend_gen_switch(node_t* node) {
+  switch_stmt_t* stmt = (switch_stmt_t*)node->data;
+  BasicBlock* temp = current_block;
+
+  std::vector<BasicBlock*> dest_vec;
+  BasicBlock* dest = nullptr;
+  BasicBlock* end = nullptr;
+  for (list_item_t* item = stmt->cases->head->next; item != stmt->cases->head; item = item->next) {
+    switch_case_t* switch_case = (switch_case_t*)item->data;
+    BasicBlock* block = BasicBlock::Create(*context, (switch_case->def ? "switch.default" : "switch.case"), current_fn);
+    current_block = block;
+    builder->SetInsertPoint(block);
+    backend_gen_stmt(switch_case->body);
+    dest_vec.push_back(block);
+    if (switch_case->def) dest = block;
+  }
+
+  if (dest == nullptr)
+    dest = BasicBlock::Create(*context, "switch.dest", current_fn);
+  else
+    end = BasicBlock::Create(*context, "switch.end", current_fn);
+  builder->SetInsertPoint(temp);
+  auto expr = backend_gen_iexpr(nullptr, stmt->value);
+  SwitchInst* inst = builder->CreateSwitch(std::get<1>(expr), dest, stmt->cases->size);
+  int i = 0;
+  for (list_item_t* item = stmt->cases->head->next; item != stmt->cases->head; item = item->next) {
+    switch_case_t* switch_case = (switch_case_t*)item->data;
+    if (!switch_case->def) {
+      for (list_item_t* it = switch_case->ranges->head->next; it != switch_case->ranges->head; it = it->next) {
+        switch_range_t* switch_range = (switch_range_t*)it->data;
+        inst->addCase((ConstantInt*)ConstantInt::get(std::get<0>(expr), switch_range->start_at), dest_vec[i]);
+        if (switch_range->range > 0) {
+          for (int64_t j = 1; j <= switch_range->range; j++) {
+            inst->addCase((ConstantInt*)ConstantInt::get(std::get<0>(expr), switch_range->start_at + j), dest_vec[i]);
+          }
+        }
+
+      }
+    }
+    builder->SetInsertPoint(dest_vec[i]);
+    if (end) {
+      builder->CreateBr(end);
+    } else {
+      builder->CreateBr(dest);
+    }
+    i++;
+  }
+  current_block = (end ? end : dest);
+  builder->SetInsertPoint(current_block);
+}
+
 void backend_gen_stmt(node_t* node) {
   if (!node) return;
   switch (node->type) {
@@ -1247,6 +1298,9 @@ void backend_gen_stmt(node_t* node) {
       break;
     case NODE_WHILE:
       backend_gen_while_loop(node);
+      break;
+    case NODE_SWITCH:
+      backend_gen_switch(node);
       break;
     case NODE_RET:
       backend_gen_ret(node);

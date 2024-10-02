@@ -72,6 +72,7 @@ node_t* parse_compound_stmt(parser_t* parser);
 node_t* parse_if(parser_t* parser);
 node_t* parse_for(parser_t* parser);
 node_t* parse_while(parser_t* parser);
+node_t* parse_switch(parser_t* parser);
 
 node_t* parse_add_expr(parser_t* parser);
 node_t* parse_shift_expr(parser_t* parser);

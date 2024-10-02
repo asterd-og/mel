@@ -2,33 +2,24 @@ import "io.mh";
 import "testHeader.mh";
 import "mem.mh";
 
-enum EnumTest {
-  EnumItem0 = 0,
-  EnumItem1 = 10,
-  EnumItem2 = 20,
-  EnumItem3 = 30,
-  EnumItem4 = 40,
-  EnumItem5 = 50,
-  EnumItem6 = 60,
-  EnumItem7 = 70,
-  EnumItem8 = 80,
-  EnumItem9,
-  EnumItem10,
-  EnumItem11,
-}
-
 fn main(): int {
-  printFmt("%d\n", EnumTest::EnumItem0);
-  printFmt("%d\n", EnumTest::EnumItem1);
-  printFmt("%d\n", EnumTest::EnumItem2);
-  printFmt("%d\n", EnumTest::EnumItem3);
-  printFmt("%d\n", EnumTest::EnumItem4);
-  printFmt("%d\n", EnumTest::EnumItem5);
-  printFmt("%d\n", EnumTest::EnumItem6);
-  printFmt("%d\n", EnumTest::EnumItem7);
-  printFmt("%d\n", EnumTest::EnumItem8);
-  printFmt("%d\n", EnumTest::EnumItem9);
-  printFmt("%d\n", EnumTest::EnumItem10);
-  printFmt("%d\n", EnumTest::EnumItem11);
+  var Choice: int = 10;
+  switch (Choice) {
+    case 0 {
+      printFmt("Choice is 0\n");
+    }
+    case 1 {
+      printFmt("Choice is 1\n");
+    }
+    case 2 {
+      printFmt("Choice is 2\n");
+    }
+    case 3 => 9 || 10 {
+      printFmt("Choice is 3 to 9, or 10\n");
+    }
+    default {
+      printFmt("Choice is not handled %d\n", Choice);
+    }
+  }
   ret 0;
 }

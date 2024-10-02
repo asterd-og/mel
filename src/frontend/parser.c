@@ -320,6 +320,9 @@ node_t* parse_stmt(parser_t* parser) {
     case TOK_FOR:
       ret = parse_for(parser);
       break;
+    case TOK_SWITCH:
+      ret = parse_switch(parser);
+      break;
     case TOK_RET:
       ret = parse_ret(parser);
       parser_consume(parser); // skip ;
@@ -349,6 +352,9 @@ node_t* parse_stmt(parser_t* parser) {
   return ret;
 }
 
+// TODO: Check if a file has already been imported
+// if it has, skip it over, if it hasnt, import it and add it to a file imported list
+// which can be imported from another parser
 void parse_import(parser_t* parser) {
   token_t* name_tok = parser_eat(parser, TOK_STRING);
   char* fname = parse_str(name_tok);
@@ -359,7 +365,7 @@ void parse_import(parser_t* parser) {
   strcat(temp, "/");
   strcat(temp, fname);
   char* name = temp;
-  char* file = open_file(name); // TODO: Look for it firstly in the /usr/mel/include, then on current path
+  char* file = open_file(name);
   if (!file) {
     free(temp);
     temp = malloc(name_tok->text_len + 2 + strlen("/usr/mel/include/"));
@@ -383,9 +389,11 @@ void parse_import(parser_t* parser) {
   list_import(parser->ast, import->ast);
 
   hashmap_import(parser->glb_obj, import->glb_obj);
-  hashmap_import(parser->tychk->types_hm, import->tychk->types_hm); // TODO: Stop importing primitives.
+  hashmap_import(parser->enum_map, import->enum_map);
+  hashmap_import(parser->tychk->types_hm, import->tychk->types_hm);
 
   hashmap_destroy(import->glb_obj);
+  hashmap_destroy(import->enum_map);
   hashmap_destroy(import->tychk->types_hm);
   // FIXME: lexer_destroy(lexer); maybe dont destroy tokens!?
   list_destroy(import->ast, false);
