@@ -46,6 +46,7 @@ void parser_error(parser_t* parser, const char* fmt, ...) {
   vfprintf(stderr, fmt, ap);
   fprintf(stderr, "\n");
   va_end(ap);
+  mel_cleanup();
   exit(1);
 }
 
@@ -402,12 +403,16 @@ void parser_parse(parser_t* parser) {
   glob_scope->parent = NULL;
   parser->glb_obj = hashmap_create(150, 10);
   parser->scope = glob_scope;
+  parser->enum_map = hashmap_create(100, 10);
   while (((token_t*)(parser->lexer_iterator->data))->type != TOK_EOF) {
     node_t* node;
     switch (parser->token->type) {
       case TOK_IMPORT:
         parse_import(parser);
         parser_consume(parser); // skip ;
+        break;
+      case TOK_ENUM:
+        parse_enum_decl(parser);
         break;
       case TOK_VAR:
         node = parse_var_decl(parser, false, false);

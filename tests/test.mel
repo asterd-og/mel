@@ -2,15 +2,33 @@ import "io.mh";
 import "testHeader.mh";
 import "mem.mh";
 
+enum EnumTest {
+  EnumItem0 = 0,
+  EnumItem1 = 10,
+  EnumItem2 = 20,
+  EnumItem3 = 30,
+  EnumItem4 = 40,
+  EnumItem5 = 50,
+  EnumItem6 = 60,
+  EnumItem7 = 70,
+  EnumItem8 = 80,
+  EnumItem9,
+  EnumItem10,
+  EnumItem11,
+}
+
 fn main(): int {
-  var Entries: **char = <**char>allocMem(8 * 8);
-  Entries[0] = <**char>allocMem(64);
-  Entries[0][0] = 'h';
-  Entries[0][1] = 'e';
-  Entries[0][2] = 'l';
-  Entries[0][3] = 'l';
-  Entries[0][4] = 'o';
-  Entries[0][5] = 0;
-  printFmt("%s\n", Entries[0]);
+  printFmt("%d\n", EnumTest::EnumItem0);
+  printFmt("%d\n", EnumTest::EnumItem1);
+  printFmt("%d\n", EnumTest::EnumItem2);
+  printFmt("%d\n", EnumTest::EnumItem3);
+  printFmt("%d\n", EnumTest::EnumItem4);
+  printFmt("%d\n", EnumTest::EnumItem5);
+  printFmt("%d\n", EnumTest::EnumItem6);
+  printFmt("%d\n", EnumTest::EnumItem7);
+  printFmt("%d\n", EnumTest::EnumItem8);
+  printFmt("%d\n", EnumTest::EnumItem9);
+  printFmt("%d\n", EnumTest::EnumItem10);
+  printFmt("%d\n", EnumTest::EnumItem11);
   ret 0;
 }

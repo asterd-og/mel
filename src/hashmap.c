@@ -41,9 +41,13 @@ start: {
 }
 
 void* hashmap_get(hashmap_t* hm, char* key) {
+  hm->flags = 0;
   uint64_t hash = hashmap_hash(key) % (hm->size - 1);
   hm_table_t* table = &hm->table[hash];
-  if (table->entries == NULL || table->collisions == 0) return NULL;
+  if (table->entries == NULL || table->collisions == 0) {
+    hm->flags |= HM_NOT_FOUND;
+    return NULL;
+  }
 
   for (uint64_t i = 0; i < table->collisions; i++) {
     if (!strcmp(key, table->entries[i].key)) return table->entries[i].data;

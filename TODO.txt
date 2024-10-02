@@ -18,6 +18,9 @@ Code Gen TODO:
 Fix pointer assingment incrementation
 Ptr += 1
 
+Fix cond1 && cond2 || cond3
+This requires conditions to be implemented as an expression.
+
 Structure initialisation (maybe)
 
 referencing & dereferencing to each other (not my priority rn)

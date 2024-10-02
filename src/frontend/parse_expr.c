@@ -309,6 +309,33 @@ node_t* parse_factor(parser_t* parser) {
   node_t* node;
   switch (tok->type) {
     case TOK_ID: {
+      if (parser_peek(parser)->type == TOK_COLON) {
+        parser_consume(parser);
+        parser_consume(parser);
+        if (parser->token->type != TOK_COLON) {
+          parser_error(parser, "Unexpected token '%.*s'.", parser->token->text_len, parser->token->text);
+          return NULL;
+        }
+        parser_consume(parser);
+        char* name = parse_str(tok);
+        char* item = parse_str(parser->token);
+        parser_enum_t* en = hashmap_get(parser->enum_map, name);
+        if (parser->enum_map->flags & HM_NOT_FOUND) {
+          parser_error(parser, "No enum named '%s'.", name);
+          return NULL;
+        }
+        void* idx = hashmap_get(en->items, item);
+        if (en->items->flags & HM_NOT_FOUND) {
+          parser_error(parser, "No item named '%s' inside of enum '%s'.", item, name);
+          return NULL;
+        }
+        node = NEW_DATA(node_t);
+        memset(node, 0, sizeof(node_t));
+        node->type = NODE_INT;
+        node->value = (int64_t)idx;
+        node->tok = parser->token;
+        break;
+      }
       object_t* obj = parser_find_obj(parser, parse_str(tok));
       bool set_type = false;
       if (parser_current_ty == NULL) {

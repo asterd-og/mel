@@ -107,6 +107,15 @@ char* find_lib(char* name) {
   return NULL;
 }
 
+char* in_fnames[100];
+int obj_cnt = 0;
+
+void mel_cleanup() {
+  for (int i = 0; i < obj_cnt; i++) {
+    remove(in_fnames[i]);
+  }
+}
+
 int main(int argc, char** argv) {
   if (argc < 2) {
     printf("mel: Error: No input files.\n");
@@ -167,8 +176,6 @@ int main(int argc, char** argv) {
   }
   char* obj;
   char* llc;
-  char* in_fnames[100];
-  int obj_cnt = 0;
   while (i < argc) {
     llc = compile(argv[i]);
     if (verbose) fprintf(stderr, "Compiled %s to %s.\n", argv[i], llc);

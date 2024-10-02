@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define HM_NOT_FOUND 1
+
 typedef struct {
   char* key;
   void* data;
@@ -17,6 +19,7 @@ typedef struct {
   size_t size;
   size_t max_collisions;
   hm_table_t* table;
+  uint64_t flags;
 } hashmap_t;
 
 hashmap_t* hashmap_create(size_t size, size_t max_collisions);

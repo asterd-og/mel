@@ -72,6 +72,8 @@ enum {
   TOK_SIZEOF,
   TOK_FALSE,
   TOK_TRUE,
+  TOK_ENUM,
+  TOK_SWITCH,
 };
 
 typedef struct {

@@ -626,6 +626,7 @@ void parse_struct_decl(parser_t* parser) {
   }
   token_t* name = parser_eat(parser, TOK_ID);
   basetype_t* type = (basetype_t*)NEW_DATA(basetype_t);
+  memset(type, 0, sizeof(basetype_t));
   type->packed = packed;
   type_checker_add(parser->tychk, name, type);
 
@@ -663,4 +664,37 @@ void parse_struct_decl(parser_t* parser) {
   type->size = size;
   type->alignment = alignment;
   if (!packed) type->size = ALIGN_UP(size, alignment);
+}
+
+void parse_enum_decl(parser_t* parser) {
+  token_t* enum_name = parser_consume(parser);
+  parser_eat(parser, TOK_LBRAC);
+  parser_consume(parser);
+  int64_t item_idx = 0;
+  parser_enum_t* en = NEW_DATA(parser_enum_t);
+  en->items = hashmap_create(50, 10);
+  while (parser->token->type != TOK_RBRAC) {
+    token_t* name = parser_expect(parser, TOK_ID);
+    parser_consume(parser);
+    if (parser->token->type == TOK_EQ) {
+      parser_consume(parser);
+      node_t* expr = parse_expression(parser, NULL);
+      if (expr->type != NODE_INT) {
+        parser_error(parser, "Cannot assign an enum item to a non-constant expression.");
+      }
+      item_idx = expr->value;
+    }
+    char* name_str = parse_str(name);
+    hashmap_add(en->items, name_str, item_idx);
+    if (parser->token->type == TOK_RBRAC) break;
+    else if (parser->token->type == TOK_COMMA) {
+      parser_consume(parser);
+    } else {
+      parser_error(parser, "Unexpected token. Expected ',' but got '%.*s'.", parser->token->text_len,
+        parser->token->text);
+    }
+    item_idx++;
+  }
+  parser_consume(parser);
+  hashmap_add(parser->enum_map, parse_str(enum_name), en);
 }

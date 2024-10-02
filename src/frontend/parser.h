@@ -15,6 +15,10 @@
 #define ALIGN_UP(x, y) (DIV_ROUND_UP(x, y) * (y))
 
 typedef struct {
+  hashmap_t* items;
+} parser_enum_t;
+
+typedef struct {
   lexer_t* lexer;
   list_t* ast;
   list_item_t* lexer_iterator;
@@ -23,6 +27,7 @@ typedef struct {
   scope_t* scope;
   hashmap_t* glb_obj;
   fun_t* current_fn;
+  hashmap_t* enum_map;
 } parser_t;
 
 extern type_t* parser_current_ty;
@@ -79,6 +84,7 @@ node_t* parse_simple_expr(parser_t* parser);
 node_t* parse_lvalue(parser_t* parser);
 
 void parse_struct_decl(parser_t* parser);
+void parse_enum_decl(parser_t* parser);
 node_t* parse_break_continue(parser_t* parser);
 
 node_t* parse_stmt(parser_t* parser);
