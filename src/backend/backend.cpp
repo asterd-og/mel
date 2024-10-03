@@ -1052,6 +1052,7 @@ BasicBlock* backend_find_end_block() {
   while (temp_scope != nullptr) {
     end = temp_scope->end_block;
     if (end) break;
+    temp_scope = temp_scope->parent;
   }
   return end;
 }
@@ -1062,6 +1063,7 @@ BasicBlock* backend_find_step_block() {
   while (temp_scope != nullptr) {
     step = temp_scope->step_block;
     if (step) break;
+    temp_scope = temp_scope->parent;
   }
   return step;
 }
