@@ -12,4 +12,6 @@ typedef struct backend_scope_t {
   struct backend_scope_t* parent;
   std::map<std::string, llvm::Value*> var_map;
   std::map<std::string, type_t*> var_types;
+  llvm::BasicBlock* end_block;
+  llvm::BasicBlock* step_block;
 } backend_scope_t;

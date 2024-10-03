@@ -178,21 +178,21 @@ int main(int argc, char** argv) {
   char* llc;
   while (i < argc) {
     llc = compile(argv[i]);
-    if (verbose) fprintf(stderr, "Compiled %s to %s.\n", argv[i], llc);
     if (!llc) {
       for (i = 0; i < obj_cnt; i++) {
         remove(in_fnames[i]);
       }
       exit(1);
     }
+    if (verbose) fprintf(stderr, "Compiled %s to %s.\n", argv[i], llc);
     obj = do_llvm(llc);
-    if (verbose) fprintf(stderr, "LLVM Compiled %s to %s.\n", llc, obj);
     if (!obj) {
       for (i = 0; i < obj_cnt; i++) {
         remove(in_fnames[i]);
       }
       exit(1);
     }
+    if (verbose) fprintf(stderr, "LLVM Compiled %s to %s.\n", llc, obj);
     in_fnames[obj_cnt++] = obj;
     in_fnames[obj_cnt] = NULL;
     remove(llc);

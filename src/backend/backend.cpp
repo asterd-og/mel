@@ -24,8 +24,6 @@ int inside_scope = 0;
 type_t* current_ty; // parser ty, handles signess
 BasicBlock* entry_block;
 BasicBlock* current_block;
-BasicBlock* step_block;
-BasicBlock* end_block;
 BasicBlock* scheduled_br = nullptr;
 bool should_br = true; // should put a br instruction at the end of conditional statement blocks?
 std::map<std::string, Function*> fn_map;
@@ -1048,6 +1046,26 @@ void backend_gen_cond(node_t* cond, BasicBlock* true_block, BasicBlock* false_bl
   }
 }
 
+BasicBlock* backend_find_end_block() {
+  BasicBlock* end = nullptr;
+  backend_scope_t* temp_scope = current_scope;
+  while (temp_scope != nullptr) {
+    end = temp_scope->end_block;
+    if (end) break;
+  }
+  return end;
+}
+
+BasicBlock* backend_find_step_block() {
+  BasicBlock* step = nullptr;
+  backend_scope_t* temp_scope = current_scope;
+  while (temp_scope != nullptr) {
+    step = temp_scope->step_block;
+    if (step) break;
+  }
+  return step;
+}
+
 void backend_gen_for_loop(node_t* node) {
   for_stmt_t* stmt = (for_stmt_t*)node->data;
 
@@ -1065,7 +1083,6 @@ void backend_gen_for_loop(node_t* node) {
   current_block = cond;
 
   BasicBlock* step = BasicBlock::Create(*context, "for.step", current_fn);
-  step_block = step;
   builder->SetInsertPoint(step);
   current_block = step;
   backend_gen_assignment(stmt->step);
@@ -1074,8 +1091,6 @@ void backend_gen_for_loop(node_t* node) {
   inside_scope++;
   BasicBlock* body = BasicBlock::Create(*context, "for.body", current_fn);
   BasicBlock* end = BasicBlock::Create(*context, "for.end", current_fn);
-  BasicBlock* temp_end = end_block;
-  end_block = end;
   builder->SetInsertPoint(body);
   current_block = body;
   backend_gen_stmt(stmt->body);
@@ -1083,7 +1098,8 @@ void backend_gen_for_loop(node_t* node) {
   else should_br = true;
 
   inside_scope--;
-  end_block = temp_end;
+  current_scope->end_block = end;
+  current_scope->step_block = step;
 
   current_block = end;
 
@@ -1171,21 +1187,21 @@ void backend_gen_while_loop(node_t* node) {
   BasicBlock* temp_block = current_block;
 
   BasicBlock* cond = BasicBlock::Create(*context, "while.cond", current_fn);
-  step_block = cond;
   builder->SetInsertPoint(cond);
   current_block = cond;
 
   inside_scope++;
   BasicBlock* body = BasicBlock::Create(*context, "while.body", current_fn);
+
   BasicBlock* end = BasicBlock::Create(*context, "while.end", current_fn);
-  BasicBlock* temp_end = end_block;
-  end_block = end;
+  current_scope->end_block = end;
+  current_scope->step_block = cond;
+
   builder->SetInsertPoint(body);
   current_block = body;
   backend_gen_stmt(stmt->body);
   if (should_br) builder->CreateBr(cond);
   else should_br = true;
-  end_block = temp_end;
   inside_scope--;
 
   current_block = end;
@@ -1208,12 +1224,13 @@ void backend_gen_while_loop(node_t* node) {
 
 void backend_gen_break_continue(node_t* node) {
   if (node->type == NODE_BREAK) {
-    builder->CreateBr(end_block);
-    should_br = false;
+    BasicBlock* end = backend_find_end_block();
+    builder->CreateBr(end);
   } else {
-    builder->CreateBr(step_block);
-    should_br = false;
+    BasicBlock* step = backend_find_step_block();
+    builder->CreateBr(step);
   }
+  should_br = false;
 }
 
 void backend_gen_switch(node_t* node) {
@@ -1221,22 +1238,32 @@ void backend_gen_switch(node_t* node) {
   BasicBlock* temp = current_block;
 
   std::vector<BasicBlock*> dest_vec;
+  std::vector<BasicBlock*> end_vec;
+  std::vector<bool> br_vec;
   BasicBlock* dest = nullptr;
   BasicBlock* end = nullptr;
+  BasicBlock* final_block;
   for (list_item_t* item = stmt->cases->head->next; item != stmt->cases->head; item = item->next) {
     switch_case_t* switch_case = (switch_case_t*)item->data;
     BasicBlock* block = BasicBlock::Create(*context, (switch_case->def ? "switch.default" : "switch.case"), current_fn);
     current_block = block;
     builder->SetInsertPoint(block);
+    inside_scope++;
     backend_gen_stmt(switch_case->body);
+    inside_scope--;
     dest_vec.push_back(block);
-    if (switch_case->def) dest = block;
+    end_vec.push_back(current_block);
+    br_vec.push_back(should_br);
+    if (switch_case->def)
+      dest = block;
   }
-
-  if (dest == nullptr)
+  if (dest == nullptr) {
     dest = BasicBlock::Create(*context, "switch.dest", current_fn);
-  else
+    final_block = dest;
+  } else {
     end = BasicBlock::Create(*context, "switch.end", current_fn);
+    final_block = end;
+  }
   builder->SetInsertPoint(temp);
   auto expr = backend_gen_iexpr(nullptr, stmt->value);
   SwitchInst* inst = builder->CreateSwitch(std::get<1>(expr), dest, stmt->cases->size);
@@ -1255,16 +1282,20 @@ void backend_gen_switch(node_t* node) {
 
       }
     }
-    builder->SetInsertPoint(dest_vec[i]);
-    if (end) {
-      builder->CreateBr(end);
-    } else {
-      builder->CreateBr(dest);
+    if (br_vec[i]) {
+      builder->SetInsertPoint(end_vec[i]);
+      if (end) {
+        builder->CreateBr(end);
+      } else {
+        builder->CreateBr(dest);
+      }
     }
     i++;
   }
-  current_block = (end ? end : dest);
-  builder->SetInsertPoint(current_block);
+  current_block = final_block;
+  builder->SetInsertPoint(final_block);
+  BasicBlock* step_block = backend_find_step_block();
+  if (step_block) builder->CreateBr(step_block);
 }
 
 void backend_gen_stmt(node_t* node) {
@@ -1347,8 +1378,6 @@ extern "C" void backend_gen(list_t* ast, bool print_ir, char* out) {
   current_ty = nullptr;
   entry_block = nullptr;
   current_block = nullptr;
-  step_block = nullptr;
-  end_block = nullptr;
   scheduled_br = nullptr;
   should_br = true;
   fn_map.clear();
