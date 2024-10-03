@@ -6,12 +6,26 @@
 #include <string.h>
 #include "../file.h"
 #include <libgen.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
-parser_t* parser_create(lexer_t* lexer) {
+parser_t* parser_create(lexer_t* lexer, list_t* imported_files, bool import) {
   parser_t* parser = (parser_t*)malloc(sizeof(parser_t));
   parser->lexer = lexer;
   parser->ast = list_create();
   parser->tychk = type_checker_create();
+  if (!imported_files)
+    parser->imported_files = list_create();
+  else
+    parser->imported_files = imported_files;
+  scope_t* glob_scope = NEW_DATA(scope_t);
+  glob_scope->glob_scope = true;
+  glob_scope->parent = NULL;
+  parser->scope = glob_scope;
+  if (!import) {
+    parser->glb_obj = hashmap_create(150, 10);
+    parser->enum_map = hashmap_create(100, 10);
+  }
   return parser;
 }
 
@@ -352,9 +366,6 @@ node_t* parse_stmt(parser_t* parser) {
   return ret;
 }
 
-// TODO: Check if a file has already been imported
-// if it has, skip it over, if it hasnt, import it and add it to a file imported list
-// which can be imported from another parser
 void parse_import(parser_t* parser) {
   token_t* name_tok = parser_eat(parser, TOK_STRING);
   char* fname = parse_str(name_tok);
@@ -377,24 +388,34 @@ void parse_import(parser_t* parser) {
       parser_error(parser, "Couldn't open file '%s'.", fname);
     }
   }
+  struct stat st;
+  int fdin = open(name, O_RDONLY);
+  fstat(fdin, &st);
+  for (list_item_t* item = parser->imported_files->head->next; item != parser->imported_files->head; item = item->next) {
+    unsigned long ino = (unsigned long)item->data;
+    if (ino == st.st_ino) {
+      free(file);
+      free(name);
+      parser_eat(parser, TOK_SEMI);
+      return;
+    }
+  }
+  list_add(parser->imported_files, st.st_ino);
+  
   free(fname);
   lexer_t* lexer = lexer_create(file, name);
   lexer_lex(lexer);
 
-  parser_t* import = parser_create(lexer);
+  parser_t* import = parser_create(lexer, parser->imported_files, true);
+  import->glb_obj = parser->glb_obj;
+  import->enum_map = parser->enum_map;
+  import->tychk->types_hm = parser->tychk->types_hm;
   parser_parse(import);
 
   free(name);
 
   list_import(parser->ast, import->ast);
 
-  hashmap_import(parser->glb_obj, import->glb_obj);
-  hashmap_import(parser->enum_map, import->enum_map);
-  hashmap_import(parser->tychk->types_hm, import->tychk->types_hm);
-
-  hashmap_destroy(import->glb_obj);
-  hashmap_destroy(import->enum_map);
-  hashmap_destroy(import->tychk->types_hm);
   // FIXME: lexer_destroy(lexer); maybe dont destroy tokens!?
   list_destroy(import->ast, false);
   free(import->scope);
@@ -406,12 +427,6 @@ void parser_parse(parser_t* parser) {
   list_t* tok_list = parser->lexer->tok_list;
   parser->lexer_iterator = tok_list->head->next;
   parser->token = (token_t*)parser->lexer_iterator->data;
-  scope_t* glob_scope = NEW_DATA(scope_t);
-  glob_scope->glob_scope = true;
-  glob_scope->parent = NULL;
-  parser->glb_obj = hashmap_create(150, 10);
-  parser->scope = glob_scope;
-  parser->enum_map = hashmap_create(100, 10);
   while (((token_t*)(parser->lexer_iterator->data))->type != TOK_EOF) {
     node_t* node;
     switch (parser->token->type) {
@@ -449,7 +464,10 @@ exit:
 
 void parser_destroy(parser_t* parser) {
   hashmap_destroy_free_items(parser->glb_obj);
+  hashmap_destroy_free_items(parser->enum_map);
+  hashmap_destroy(parser->tychk->types_hm);
   list_destroy(parser->ast, false);
   free(parser->scope);
+  list_destroy(parser->imported_files, false);
   free(parser);
 }

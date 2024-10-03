@@ -28,11 +28,12 @@ typedef struct {
   hashmap_t* glb_obj;
   fun_t* current_fn;
   hashmap_t* enum_map;
+  list_t* imported_files;
 } parser_t;
 
 extern type_t* parser_current_ty;
 
-parser_t* parser_create(lexer_t* lexer);
+parser_t* parser_create(lexer_t* lexer, list_t* imported_files, bool import);
 
 void parser_error(parser_t* parser, const char* fmt, ...);
 void parser_warn(parser_t* parser, const char* fmt, ...);

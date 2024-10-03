@@ -1,1 +1,5 @@
+enum TestEnum {
+  TestKind,
+}
+
 fn add(var x: int, var y: int): int;

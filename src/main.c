@@ -29,7 +29,7 @@ char* compile(char* filename) {
   lexer_lex(lexer);
   if (verbose) fprintf(stderr, "Lexer: Lexed.\n");
 
-  parser_t* parser = parser_create(lexer);
+  parser_t* parser = parser_create(lexer, NULL, false);
   if (verbose) fprintf(stderr, "Parser: Created.\n");
   parser_parse(parser);
   if (verbose) fprintf(stderr, "Parser: Parsed.\n");

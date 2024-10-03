@@ -32,7 +32,7 @@ clean:
 .PHONY: clean
 
 run:
-	./out/mel -l MRL -l raylib tests/test.mel tests/test2.mel test
+	./out/mel tests/test.mel test
 	./test
 
 install:

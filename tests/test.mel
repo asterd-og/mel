@@ -1,25 +1,8 @@
 import "io.mh";
 import "testHeader.mh";
-import "mem.mh";
+import "test2.mh";
 
 fn main(): int {
-  var Choice: int = 10;
-  switch (Choice) {
-    case 0 {
-      printFmt("Choice is 0\n");
-    }
-    case 1 {
-      printFmt("Choice is 1\n");
-    }
-    case 2 {
-      printFmt("Choice is 2\n");
-    }
-    case 3 => 9 || 10 {
-      printFmt("Choice is 3 to 9, or 10\n");
-    }
-    default {
-      printFmt("Choice is not handled %d\n", Choice);
-    }
-  }
+  printFmt("%d\n", TestEnum::TestKind);
   ret 0;
 }
