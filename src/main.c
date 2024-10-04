@@ -36,7 +36,7 @@ char* compile(char* filename) {
 
   char* cg_name;
 
-  ast_view(parser->ast);
+  // ast_view(parser->ast);
   srand(time(NULL));
   cg_name = (char*)malloc(32); // 6 random digits (dot) ll
   if (last_random == 0) last_random = rand() % 999999;
