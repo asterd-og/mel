@@ -634,7 +634,7 @@ void backend_gen_fn_def(node_t* node) {
       builder->CreateRetVoid();
     } else {
       Value* ret;
-      if (fn->getReturnType()->isPointerTy()) {
+      if (fn->getReturnType()->isPointerTy() || fn->getReturnType()->isStructTy()) {
         ret = builder->CreateAlloca(fn->getReturnType());
         ret = builder->CreateLoad(fn->getReturnType(), ret);
       } else {

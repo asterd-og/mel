@@ -1,0 +1,5 @@
+fn Sin(var Radian: f64): f64;
+fn Cos(var Radian: f64): f64;
+fn Tan(var Radian: f64): f64;
+fn Sqrt(var X: f64): f64;
+fn Pow(var X: f64, var Y: f64): f64;
