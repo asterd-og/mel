@@ -734,9 +734,9 @@ void parse_struct_decl(parser_t* parser) {
       size += 8;
     } else if (var->type->is_arr) {
       type_t* temp = var->type;
-      while (temp->pointer) {
-        temp = temp->pointer;
+      while (temp->is_arr) {
         size += var->type->type->size * temp->arr_size->value;
+        temp = temp->pointer;
       }
     } else {
       size += var->type->type->size;
