@@ -355,11 +355,6 @@ node_t* parse_factor(parser_t* parser) {
         parser_type_check(parser, obj->type, parser_current_ty);
         break;
       }
-      if (obj->func) {
-        parser_warn(parser, "'%s' is a function, not a variable.", obj->name);
-        if (set_type)
-          parser_current_ty->is_pointer = true;
-      }
       if (parser_current_ty->type->_struct) {
         if (!obj->type->type->_struct) {
           parser_error(parser, "Type incoherence between %s and structure %s.\n", obj->type->type->name,
@@ -368,6 +363,11 @@ node_t* parse_factor(parser_t* parser) {
         }
       }
       node = parse_id(parser, parser_current_ty);
+      if (obj->func) {
+        parser_warn(parser, "'%s' is a function, not a variable.", obj->name);
+        // TODO: Create a pointer to, instead of just setting is pointer to true.
+        parser_current_ty->is_pointer = true;
+      }
       parser_rewind(parser);
       break;
     }
@@ -590,7 +590,7 @@ node_t* parse_expr(parser_t* parser, type_t* ty) {
     return parse_ref(parser, ty);
   }
   node_t* node = parse_expression(parser, ty);
-  if ((ty && parser_current_ty) && (ty->is_pointer && !parser_current_ty->is_pointer)) {
+  if ((ty && parser_current_ty) && (ty->is_pointer && !parser_current_ty->is_pointer) && !parser_current_ty->is_arr) {
     parser_error(parser, "Trying to pass a non-pointer object to pointer. Try casting like '<Type>'.");
     return NULL;
   }

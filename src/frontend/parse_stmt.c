@@ -16,10 +16,11 @@ node_t* parse_internal_arr_idx(parser_t* parser, type_t* type) {
   }
   list_t* idx_list = list_create();
   int count = 0;
+  type_t* temp = type;
   while (parser_peek(parser)->type == TOK_LSQBR) {
     count++;
     parser_eat(parser, TOK_LSQBR);
-    if (count > type->dimensions) {
+    if (!temp || (!temp->is_pointer && !temp->is_arr)) {
       parser_error(parser, "Trying to access inexistent dimension.");
       return NULL;
     }
@@ -27,8 +28,9 @@ node_t* parse_internal_arr_idx(parser_t* parser, type_t* type) {
     node_t* expr = parse_expression(parser, NULL);
     parser_expect(parser, TOK_RSQBR);
     list_add(idx_list, expr);
+    temp = temp->pointer;
   }
-  parser_current_ty = type;
+  parser_current_ty = temp;
   node_t* node = NEW_DATA(node_t);
   node->lhs = NULL; node->rhs = NULL;
   node->type = NODE_ARR_IDX;
@@ -55,15 +57,15 @@ node_t* parse_array(parser_t* parser, type_t* type) {
   node->type = NODE_ARRAY;
   list_t* list = list_create();
   while (parser->token->type != TOK_RSQBR) {
-    if (type->pointer && type->is_arr) {
-      if (type->pointer->arr_size->type == NODE_INT && list->size + 1 > (size_t)type->pointer->arr_size->value) {
+    if (type->is_arr) {
+      if (type->arr_size->type == NODE_INT && list->size + 1 > (size_t)type->arr_size->value) {
         parser_error(parser, "Too many items in array.");
         return NULL;
       }
     }
     if (parser->token->type == TOK_LSQBR) {
       parser_consume(parser);
-      if (type->pointer->pointer && type->pointer->is_arr)
+      if (type->pointer && type->pointer->is_arr)
         expr = parse_array(parser, type->pointer);
       else
         expr = parse_array(parser, type);
@@ -92,7 +94,7 @@ node_t* parse_array(parser_t* parser, type_t* type) {
 
 node_t* parse_ref(parser_t* parser, type_t* type) {
   if (type && !type->is_pointer) {
-    parser_error(parser, "Type is not a pointer!");
+    parser_error(parser, "Type doesn't expect a pointer!");
     return NULL;
   }
   parser_consume(parser);

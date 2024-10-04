@@ -116,24 +116,28 @@ void expr_or_arr_view(node_t* node) {
 }
 
 void type_view(type_t* ty) {
-  if (ty->is_pointer) {
-    for (int i = 0; i < ty->ptr_cnt; i++)
+  type_t* temp = ty;
+  if (ty->is_arr) {
+    while (temp->is_arr) {
+      temp = temp->pointer;
+    }
+  }
+  if (temp->is_pointer) {
+    while (temp->is_pointer) {
       printf("*");
+      temp = temp->pointer;
+    }
   }
   if (ty->_signed != ty->type->_signed) {
     printf("%s ", (ty->_signed ? "signed" : "unsigned"));
   }
   printf("%s", ty->type->name);
   if (ty->is_arr) {
-    type_t* temp = ty;
+    temp = ty;
     while (temp->is_arr) {
-      temp = temp->pointer;
       printf("[");
       expr_view(temp->arr_size);
       printf("]");
-    }
-    temp = ty;
-    while (temp->is_arr) {
       temp = temp->pointer;
     }
   }

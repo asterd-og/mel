@@ -80,19 +80,26 @@ void backend_back_scope() {
 }
 
 Type* backend_get_ptr_arr_mod(type_t* ty, Type* bt) {
-  if (ty->is_pointer) {
-    Type* temp_ty = bt;
-    for (int i = 0; i < ty->ptr_cnt; i++) {
+  type_t* temp = ty;
+  Type* temp_ty = bt;
+  if (ty->is_arr) {
+    while (temp->is_arr) {
+      temp = temp->pointer;
+    }
+  }
+  if (temp->is_pointer) {
+    while (temp->is_pointer) {
+      temp = temp->pointer;
       temp_ty = temp_ty->getPointerTo();
     }
     bt = temp_ty;
   }
   if (ty->is_arr) {
-    type_t* temp = ty;
-    Type* temp_ty = bt;
+    temp = ty;
+    temp_ty = bt;
     while (temp->is_arr) {
-      temp = temp->pointer;
       temp_ty = ArrayType::get(temp_ty, temp->arr_size->value);
+      temp = temp->pointer;
     }
     bt = temp_ty;
   }
@@ -1094,14 +1101,14 @@ void backend_gen_for_loop(node_t* node) {
   BasicBlock* body = BasicBlock::Create(*context, "for.body", current_fn);
   BasicBlock* end = BasicBlock::Create(*context, "for.end", current_fn);
   builder->SetInsertPoint(body);
+  current_scope->end_block = end;
+  current_scope->step_block = step;
   current_block = body;
   backend_gen_stmt(stmt->body);
   if (should_br) builder->CreateBr(step);
   else should_br = true;
 
   inside_scope--;
-  current_scope->end_block = end;
-  current_scope->step_block = step;
 
   current_block = end;
 

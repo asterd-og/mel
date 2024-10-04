@@ -3,12 +3,7 @@ import "testHeader.mh";
 import "test2.mh";
 
 fn main(): int {
-  var i: int = 0;
-  while (i < 10) {
-    i += 1;
-    if (i % 2 == 0) continue;
-    printFmt("%d\n", i);
-  }
-  printFmt("%d\n", TestEnum::TestKind);
+  var Arr: u64[2][2] = [[1, 2], [3, 4]]; // list of *u64
+  printFmt("%d\n", Arr[1][0]);
   ret 0;
 }
