@@ -141,7 +141,6 @@ node_t* parse_id(parser_t* parser, type_t* type) {
 }
 
 node_t* parse_struct_acc(parser_t* parser, type_t* type) {
-  // Gotta end in =
   node_t* lhs;
   id_type = type;
   parser_current_ty = type;
@@ -170,10 +169,10 @@ node_t* parse_struct_acc(parser_t* parser, type_t* type) {
     type_t* ty;
     for (list_item_t* item = list->head->next; item != list->head; item = item->next) {
       var_t* var = (var_t*)item->data;
-      if (!strncmp(parser->token->text, var->name->text, parser->token->text_len)) {
-        ty = var->type;
-        found = true;
-      }
+      if (var->name->text_len != parser->token->text_len) continue;
+      if (memcmp(parser->token->text, var->name->text, var->name->text_len) != 0) continue;
+      ty = var->type;
+      found = true;
     }
     if (!found) {
       parser_error(parser, "No member '%.*s' found in structure %s.", parser->token->text_len, parser->token->text, type->type->name);

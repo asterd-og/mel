@@ -3,7 +3,7 @@ import "testHeader.mh";
 import "test2.mh";
 
 fn main(): int {
-  var Arr: *u64;
-  printFmt("%d\n", Arr[1]);
+  var Test: *char = "Hello world";
+  printFmt("%d\n", Test[3]);
   ret 0;
 }

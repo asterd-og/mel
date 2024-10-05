@@ -741,11 +741,12 @@ std::tuple<var_t*, int> backend_get_struct_member_idx(type_t* struc, token_t* me
   var_t* var;
   for (list_item_t* item = struc->type->members->head->next; item != struc->type->members->head; item = item->next) {
     var = (var_t*)item->data;
-    if (!strncmp(var->name->text, member->text, member->text_len)) {
-      current_ty = var->type;
-      break;
-    }
     i++;
+    if (var->name->text_len != member->text_len) continue;
+    if (memcmp(member->text, var->name->text, var->name->text_len) != 0) continue;
+    current_ty = var->type;
+    i--;
+    break;
   }
   return {var, i};
 }
