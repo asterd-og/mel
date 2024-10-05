@@ -88,9 +88,9 @@ Type* backend_get_ptr_arr_mod(type_t* ty, Type* bt) {
     }
   }
   if (temp->is_pointer) {
-    while (temp->is_pointer) {
-      temp = temp->pointer;
+    while (temp && temp->is_pointer) {
       temp_ty = temp_ty->getPointerTo();
+      temp = temp->pointer;
     }
     bt = temp_ty;
   }

@@ -3,7 +3,7 @@ import "testHeader.mh";
 import "test2.mh";
 
 fn main(): int {
-  var Arr: u64[2][2] = [[1, 2], [3, 4]]; // list of *u64
-  printFmt("%d\n", Arr[1][0]);
+  var Arr: *u64;
+  printFmt("%d\n", Arr[1]);
   ret 0;
 }
